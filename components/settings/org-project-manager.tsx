@@ -30,6 +30,7 @@ export function OrgProjectManager() {
   const [isLoading, setIsLoading] = useState(true)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const loadData = async () => {
     setIsLoading(true)
@@ -42,6 +43,7 @@ export function OrgProjectManager() {
       setIsLoading(false)
       return
     }
+    setCurrentUserId(userData.user.id)
 
     const { data: orgData, error: orgError } = await supabase
       .from("organizations")
@@ -85,9 +87,29 @@ export function OrgProjectManager() {
     }
 
     const supabase = createClient()
-    const { error: insertError } = await supabase.from("organizations").insert({ name: orgName.trim() })
-    if (insertError) {
-      setError(`Unable to create organization: ${insertError.message}`)
+    const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
+    if (!ownerId) {
+      setError("Sign in to create an organization.")
+      return
+    }
+
+    const { data: orgData, error: insertError } = await supabase
+      .from("organizations")
+      .insert({ name: orgName.trim(), owner_id: ownerId })
+      .select("id")
+      .single()
+
+    if (insertError || !orgData) {
+      setError(`Unable to create organization: ${insertError?.message ?? "Unknown error"}`)
+      return
+    }
+
+    const { error: memberError } = await supabase
+      .from("organization_members")
+      .insert({ organization_id: orgData.id, user_id: ownerId, role: "owner" })
+
+    if (memberError) {
+      setError(`Organization created, but failed to add owner: ${memberError.message}`)
       return
     }
 
@@ -133,9 +155,14 @@ export function OrgProjectManager() {
     }
 
     const supabase = createClient()
+    const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
+    if (!ownerId) {
+      setError("Sign in to create a project.")
+      return
+    }
     const { error: insertError } = await supabase
       .from("projects")
-      .insert({ name: projectName.trim(), organization_id: selectedOrgId })
+      .insert({ name: projectName.trim(), organization_id: selectedOrgId, user_id: ownerId })
 
     if (insertError) {
       setError(`Unable to create project: ${insertError.message}`)
