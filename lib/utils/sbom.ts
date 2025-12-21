@@ -2,6 +2,7 @@ import type { SBOMComponent } from "@/types"
 
 interface ParsedSBOM {
   components: SBOMComponent[]
+  raw: UnknownRecord
 }
 
 type UnknownRecord = Record<string, unknown>
@@ -77,7 +78,7 @@ function parseCycloneDX(data: UnknownRecord): ParsedSBOM {
     }
   })
 
-  return { components }
+  return { components, raw: data }
 }
 
 function parseSpdx(data: UnknownRecord): ParsedSBOM {
@@ -97,7 +98,7 @@ function parseSpdx(data: UnknownRecord): ParsedSBOM {
     }
   })
 
-  return { components }
+  return { components, raw: data }
 }
 
 export async function parseSbomFile(file: File): Promise<ParsedSBOM> {

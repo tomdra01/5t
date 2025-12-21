@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { Container } from "@/components/layout/container"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { AlertTriangle, Package } from "lucide-react"
 import type { SBOMComponent } from "@/types"
 import { DropZone } from "@/components/sbom/drop-zone"
@@ -11,15 +10,17 @@ import { ComponentTable } from "@/components/sbom/component-table"
 import { parseSbomFile } from "@/lib/utils/sbom"
 import { createClient } from "@/utils/supabase/client"
 import Link from "next/link"
+import { uploadSbomAction } from "@/app/sbom/actions"
+import { useProjectContext } from "@/components/project-context"
 
 export default function SBOMPage() {
   const [components, setComponents] = useState<SBOMComponent[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([])
-  const [selectedProjectId, setSelectedProjectId] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
   const [isLoadingProjects, setIsLoadingProjects] = useState(true)
   const [authError, setAuthError] = useState<string | null>(null)
+  const { projectId, setProjectId } = useProjectContext()
 
   useEffect(() => {
     const loadProjects = async () => {
@@ -49,12 +50,9 @@ export default function SBOMPage() {
 
       const stored = typeof window !== "undefined" ? window.localStorage.getItem("selectedProjectId") : null
       const storedValid = stored && safeProjects.some((project) => project.id === stored)
-      const nextProjectId = storedValid ? stored : safeProjects[0]?.id ?? ""
+      const nextProjectId = storedValid ? stored : projectId || safeProjects[0]?.id || ""
       if (nextProjectId) {
-        setSelectedProjectId(nextProjectId)
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem("selectedProjectId", nextProjectId)
-        }
+        setProjectId(nextProjectId)
       }
       setIsLoadingProjects(false)
     }
@@ -76,24 +74,15 @@ export default function SBOMPage() {
       const parsed = await parseSbomFile(file)
       setComponents(parsed.components)
 
-      if (!selectedProjectId) {
+      if (!projectId) {
         setUploadError("Select a project before uploading to Supabase.")
         return
       }
 
       setIsProcessing(true)
-      const response = await fetch("/api/sbom/process", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          projectId: selectedProjectId,
-          components: parsed.components,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = (await response.json()) as { message?: string }
-        setUploadError(data.message || "Failed to save SBOM data.")
+      const result = await uploadSbomAction({ projectId, sbom: parsed.raw })
+      if (!result.success) {
+        setUploadError(result.message || "Failed to save SBOM data.")
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to parse SBOM file."
@@ -126,13 +115,10 @@ export default function SBOMPage() {
           <div className="md:max-w-md w-full space-y-2">
             <div className="relative">
               <select
-                value={selectedProjectId}
+                value={projectId}
                 onChange={(event) => {
                   const value = event.target.value
-                  setSelectedProjectId(value)
-                  if (typeof window !== "undefined") {
-                    window.localStorage.setItem("selectedProjectId", value)
-                  }
+                  setProjectId(value)
                 }}
                 className="w-full appearance-none rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
                 disabled={isLoadingProjects || projects.length === 0}
