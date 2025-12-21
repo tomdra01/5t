@@ -21,7 +21,12 @@ interface Project {
 }
 
 export function OrgProjectManager() {
-  const supabase = useMemo(() => createClient(), [])
+  const supabase = useMemo(() => {
+    if (typeof window === "undefined") {
+      return null
+    }
+    return createClient()
+  }, [])
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedOrgId, setSelectedOrgId] = useState("")
@@ -37,6 +42,9 @@ export function OrgProjectManager() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const loadData = async (showLoading = true) => {
+    if (!supabase) {
+      return
+    }
     if (showLoading) {
       setIsLoading(true)
     }
@@ -91,6 +99,9 @@ export function OrgProjectManager() {
   }, [selectedOrgId])
 
   useEffect(() => {
+    if (!supabase) {
+      return
+    }
     const handleChange = () => {
       loadData(false)
     }
@@ -115,6 +126,10 @@ export function OrgProjectManager() {
       return
     }
 
+    if (!supabase) {
+      setError("Supabase client not ready.")
+      return
+    }
     const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
     if (!ownerId) {
       setError("Sign in to create an organization.")
@@ -161,6 +176,10 @@ export function OrgProjectManager() {
       return
     }
 
+    if (!supabase) {
+      setError("Supabase client not ready.")
+      return
+    }
     const { error: insertError } = await supabase
       .from("organization_members")
       .insert({ organization_id: selectedOrgId, user_id: memberUserId.trim(), role: "member" })
@@ -187,6 +206,10 @@ export function OrgProjectManager() {
       return
     }
 
+    if (!supabase) {
+      setError("Supabase client not ready.")
+      return
+    }
     const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
     if (!ownerId) {
       setError("Sign in to create a project.")
