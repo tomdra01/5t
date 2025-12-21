@@ -42,6 +42,7 @@ interface UploadSbomResult {
   message: string
   componentsInserted: number
   vulnerabilitiesInserted: number
+  errors?: string[]
 }
 
 const extractLicense = (component: CycloneDxComponent) => {
@@ -84,6 +85,7 @@ export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Pr
 
   let componentsInserted = 0
   let vulnerabilitiesInserted = 0
+  const errors: string[] = []
 
   for (const component of components) {
     const { data: inserted, error: insertError } = await supabase
@@ -100,6 +102,7 @@ export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Pr
       .single<SbomComponentRow>()
 
     if (insertError || !inserted) {
+      errors.push(insertError?.message ?? "Failed to insert SBOM component.")
       continue
     }
 
@@ -118,6 +121,7 @@ export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Pr
       })
 
       if (!response.ok) {
+        errors.push(`OSV lookup failed for ${component.name ?? "component"}.`)
         continue
       }
 
@@ -135,17 +139,24 @@ export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Pr
 
         if (!vulnError) {
           vulnerabilitiesInserted += 1
+        } else {
+          errors.push(vulnError.message)
         }
       }
     } catch {
-      // Ignore OSV errors per component to keep ingestion resilient.
+      errors.push(`OSV lookup failed for ${component.name ?? "component"}.`)
     }
   }
 
+  const success = componentsInserted > 0
+
   return {
-    success: true,
-    message: "SBOM processed and vulnerabilities scanned.",
+    success,
+    message: success
+      ? "SBOM processed and vulnerabilities scanned."
+      : errors[0] ?? "No components were saved. Check RLS policies for sbom_components.",
     componentsInserted,
     vulnerabilitiesInserted,
+    errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
   }
 }

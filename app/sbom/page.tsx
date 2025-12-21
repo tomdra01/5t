@@ -16,6 +16,7 @@ import { useProjectContext } from "@/components/project-context"
 export default function SBOMPage() {
   const [components, setComponents] = useState<SBOMComponent[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [isLoadingProjects, setIsLoadingProjects] = useState(true)
@@ -71,6 +72,7 @@ export default function SBOMPage() {
   const handleFileUpload = async (file: File) => {
     try {
       setUploadError(null)
+      setUploadStatus(null)
       const parsed = await parseSbomFile(file)
       setComponents(parsed.components)
 
@@ -83,6 +85,10 @@ export default function SBOMPage() {
       const result = await uploadSbomAction({ projectId, sbom: parsed.raw })
       if (!result.success) {
         setUploadError(result.message || "Failed to save SBOM data.")
+      } else {
+        setUploadStatus(
+          `Saved ${result.componentsInserted} components and ${result.vulnerabilitiesInserted} vulnerabilities.`,
+        )
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to parse SBOM file."
@@ -148,6 +154,11 @@ export default function SBOMPage() {
       {uploadError && (
         <div className="text-sm text-destructive border border-destructive/20 bg-destructive/5 rounded-2xl px-4 py-3">
           {uploadError}
+        </div>
+      )}
+      {uploadStatus && (
+        <div className="text-sm text-emerald-700 border border-emerald-200/60 bg-emerald-50 rounded-2xl px-4 py-3">
+          {uploadStatus}
         </div>
       )}
       {isProcessing && <p className="text-sm text-muted-foreground">Scanning and saving to Supabase...</p>}
