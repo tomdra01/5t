@@ -70,6 +70,8 @@ function parseCycloneDX(data: UnknownRecord): ParsedSBOM {
       version: asString(component.version) || "Unknown",
       type: toComponentType(component.type),
       license: extractCycloneDxLicense(component),
+      purl: asString(component.purl),
+      author: asString(component.author),
       vulnerabilities: vulnerabilityCounts.get(bomRef) ?? 0,
       lastUpdated: parseDate((data.metadata as UnknownRecord | undefined)?.timestamp),
     }

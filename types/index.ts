@@ -26,6 +26,8 @@ export interface SBOMComponent {
   version: string
   type: "library" | "framework" | "application" | "os" | "other"
   license?: string
+  purl?: string
+  author?: string
   vulnerabilities: number
   lastUpdated: Date
 }
