@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Container } from "@/components/layout/container"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,12 +9,58 @@ import type { SBOMComponent } from "@/types"
 import { DropZone } from "@/components/sbom/drop-zone"
 import { ComponentTable } from "@/components/sbom/component-table"
 import { parseSbomFile } from "@/lib/utils/sbom"
+import { createClient } from "@/utils/supabase/client"
+import Link from "next/link"
 
 export default function SBOMPage() {
   const [components, setComponents] = useState<SBOMComponent[]>([])
   const [uploadError, setUploadError] = useState<string | null>(null)
-  const [projectId, setProjectId] = useState("")
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedProjectId, setSelectedProjectId] = useState("")
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      setIsLoadingProjects(true)
+      setAuthError(null)
+      const supabase = createClient()
+      const { data: userData, error: userError } = await supabase.auth.getUser()
+      if (userError || !userData.user) {
+        setAuthError("Sign in to load your projects.")
+        setIsLoadingProjects(false)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id,name")
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        setUploadError("Failed to load projects.")
+        setIsLoadingProjects(false)
+        return
+      }
+
+      const safeProjects = data ?? []
+      setProjects(safeProjects)
+
+      const stored = typeof window !== "undefined" ? window.localStorage.getItem("selectedProjectId") : null
+      const storedValid = stored && safeProjects.some((project) => project.id === stored)
+      const nextProjectId = storedValid ? stored : safeProjects[0]?.id ?? ""
+      if (nextProjectId) {
+        setSelectedProjectId(nextProjectId)
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem("selectedProjectId", nextProjectId)
+        }
+      }
+      setIsLoadingProjects(false)
+    }
+
+    loadProjects()
+  }, [])
 
   const stats = useMemo(() => {
     const totalComponents = components.length
@@ -30,8 +76,8 @@ export default function SBOMPage() {
       const parsed = await parseSbomFile(file)
       setComponents(parsed.components)
 
-      if (!projectId.trim()) {
-        setUploadError("Add a Project ID before uploading to Supabase.")
+      if (!selectedProjectId) {
+        setUploadError("Select a project before uploading to Supabase.")
         return
       }
 
@@ -40,7 +86,7 @@ export default function SBOMPage() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          projectId: projectId.trim(),
+          projectId: selectedProjectId,
           components: parsed.components,
         }),
       })
@@ -74,15 +120,40 @@ export default function SBOMPage() {
       <Card className="border-border/60 bg-card/70">
         <div className="p-4 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-foreground">Supabase Project ID</p>
-            <p className="text-xs text-muted-foreground">Paste the project UUID to link this upload.</p>
+            <p className="text-sm font-medium text-foreground">Project</p>
+            <p className="text-xs text-muted-foreground">Select the project that will receive this SBOM upload.</p>
           </div>
-          <Input
-            value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
-            placeholder="e.g. 0f2a6c2f-8e23-4a9f-bcdf-47f2b3f2e1ab"
-            className="md:max-w-md"
-          />
+          <div className="md:max-w-md w-full space-y-2">
+            <div className="relative">
+              <select
+                value={selectedProjectId}
+                onChange={(event) => {
+                  const value = event.target.value
+                  setSelectedProjectId(value)
+                  if (typeof window !== "undefined") {
+                    window.localStorage.setItem("selectedProjectId", value)
+                  }
+                }}
+                className="w-full appearance-none rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                disabled={isLoadingProjects || projects.length === 0}
+              >
+                {isLoadingProjects && <option>Loading projects...</option>}
+                {!isLoadingProjects && projects.length === 0 && <option>No projects available</option>}
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {authError ? (
+              <p className="text-xs text-destructive">{authError}</p>
+            ) : projects.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Create a project in <Link href="/settings" className="underline">Settings</Link> to continue.
+              </p>
+            ) : null}
+          </div>
         </div>
       </Card>
 
