@@ -22,7 +22,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
-    const match = pathname.match(/^\\/([^/]+)\\/([^/]+)\\/dashboard$/)
+    const match = pathname.match(/^\/([^/]+)\/([^/]+)\/dashboard$/)
     if (match?.[2]) {
       setProjectIdState(match[2])
       window.localStorage.setItem("selectedProjectId", match[2])
