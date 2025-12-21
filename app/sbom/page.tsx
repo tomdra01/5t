@@ -61,6 +61,53 @@ export default function SBOMPage() {
     loadProjects()
   }, [])
 
+  useEffect(() => {
+    const loadComponents = async () => {
+      if (!projectId) {
+        setComponents([])
+        return
+      }
+
+      const supabase = createClient()
+      const { data: componentRows, error: componentError } = await supabase
+        .from("sbom_components")
+        .select("id,name,version,license,purl,author,added_at")
+        .eq("project_id", projectId)
+        .order("added_at", { ascending: false })
+
+      if (componentError) {
+        setUploadError("Failed to load SBOM components.")
+        return
+      }
+
+      const componentIds = (componentRows ?? []).map((component) => component.id)
+      const { data: vulnRows } = componentIds.length
+        ? await supabase.from("vulnerabilities").select("component_id").in("component_id", componentIds)
+        : { data: [] }
+
+      const vulnCounts = new Map<string, number>()
+      ;(vulnRows ?? []).forEach((row) => {
+        vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) ?? 0) + 1)
+      })
+
+      const mapped = (componentRows ?? []).map((component) => ({
+        id: component.id,
+        name: component.name ?? "Unknown",
+        version: component.version ?? "Unknown",
+        type: "library" as const,
+        license: component.license ?? undefined,
+        purl: component.purl ?? undefined,
+        author: component.author ?? undefined,
+        vulnerabilities: vulnCounts.get(component.id) ?? 0,
+        lastUpdated: new Date(component.added_at ?? new Date().toISOString()),
+      }))
+
+      setComponents(mapped)
+    }
+
+    loadComponents()
+  }, [projectId])
+
   const stats = useMemo(() => {
     const totalComponents = components.length
     const vulnerableComponents = components.filter((component) => component.vulnerabilities > 0).length
