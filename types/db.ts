@@ -46,3 +46,12 @@ export interface VulnerabilityRow {
   reporting_deadline: string
   updated_at: string | null
 }
+
+export interface ComplianceReportRow {
+  id: string
+  project_id: string
+  report_type: string | null
+  generated_by: string | null
+  sent_to_regulator: boolean | null
+  created_at: string
+}
