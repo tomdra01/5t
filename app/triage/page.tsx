@@ -3,12 +3,15 @@
 import { useEffect, useMemo, useState } from "react"
 import { Container } from "@/components/layout/container"
 import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { AlertTriangle, Clock, TrendingUp } from "lucide-react"
 import { VulnerabilityTable } from "@/components/compliance/vulnerability-table"
 import { createClient } from "@/utils/supabase/client"
 import { useProjectContext } from "@/components/project-context"
 import type { Vulnerability } from "@/types"
 import type { SbomComponentRow, VulnerabilityRow } from "@/types/db"
+import { generateComplianceReport } from "@/app/triage/actions"
+import type { ComplianceReportSummary } from "@/types/compliance"
 
 const mapSeverity = (severity?: string | null): Vulnerability["severity"] => {
   switch ((severity ?? "high").toLowerCase()) {
@@ -44,6 +47,8 @@ export default function TriagePage() {
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [report, setReport] = useState<ComplianceReportSummary | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   useEffect(() => {
     const loadVulnerabilities = async () => {
@@ -125,16 +130,34 @@ export default function TriagePage() {
   return (
     <Container>
       <div className="space-y-8">
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-foreground tracking-tight">Vulnerability Triage</h1>
-          <p className="text-muted-foreground text-lg">
-            Manage discovered vulnerabilities with ownership and remediation tracking for CRA compliance
-          </p>
-          {!projectId && (
-            <p className="text-sm text-muted-foreground">
-              Select a project in Organizations to see triage data.
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold text-foreground tracking-tight">Vulnerability Triage</h1>
+            <p className="text-muted-foreground text-lg">
+              Manage discovered vulnerabilities with ownership and remediation tracking for CRA compliance
             </p>
-          )}
+            {!projectId && (
+              <p className="text-sm text-muted-foreground">
+                Select a project in Organizations to see triage data.
+              </p>
+            )}
+          </div>
+          <div className="flex flex-col items-start gap-2">
+            <Button
+              disabled={!projectId || isGenerating}
+              onClick={async () => {
+                if (!projectId) return
+                setIsGenerating(true)
+                const result = await generateComplianceReport({ projectId })
+                setReport(result)
+                setIsGenerating(false)
+              }}
+              className="bg-primary text-primary-foreground"
+            >
+              {isGenerating ? "Generating..." : "Generate Compliance Report"}
+            </Button>
+            {report && <p className="text-xs text-muted-foreground">{report.message}</p>}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -188,6 +211,31 @@ export default function TriagePage() {
         </div>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {report && report.success && (
+          <Card className="border-border bg-card">
+            <div className="p-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Criticals</p>
+                <p className="text-lg font-semibold text-foreground">{report.criticalCount}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Avg Remediation (hrs)</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {report.averageRemediationHours ?? "—"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Deadlines Met</p>
+                <p className="text-lg font-semibold text-foreground">{report.deadlinesMetPercent}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Total Vulnerabilities</p>
+                <p className="text-lg font-semibold text-foreground">{report.totalVulnerabilities}</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {isLoading ? (
           <Card className="border-border bg-card">

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { createClient } from "@/utils/supabase/client"
 import { cn } from "@/lib/utils"
 import { useProjectContext } from "@/components/project-context"
+import { useRouter } from "next/navigation"
 import type { OrganizationMemberRow, OrganizationRow, ProjectRow, SbomComponentRow, VulnerabilityRow } from "@/types/db"
 
 const cardClass =
@@ -21,6 +22,7 @@ export function OrgProjectManager() {
     return createClient()
   }, [])
   const { projectId, setProjectId } = useProjectContext()
+  const router = useRouter()
   const [organizations, setOrganizations] = useState<OrganizationRow[]>([])
   const [memberships, setMemberships] = useState<OrganizationMemberRow[]>([])
   const [projects, setProjects] = useState<ProjectRow[]>([])
@@ -112,6 +114,12 @@ export function OrgProjectManager() {
   useEffect(() => {
     selectedOrgIdRef.current = selectedOrgId
   }, [selectedOrgId])
+
+  useEffect(() => {
+    if (selectedOrgId && projectId) {
+      router.push(`/${selectedOrgId}/${projectId}/dashboard`)
+    }
+  }, [projectId, router, selectedOrgId])
 
   useEffect(() => {
     if (!supabase) {
@@ -482,7 +490,12 @@ export function OrgProjectManager() {
                         <div className="flex items-center justify-between pt-2">
                           <button
                             type="button"
-                            onClick={() => setProjectId(project.id)}
+                            onClick={() => {
+                              setProjectId(project.id)
+                              if (selectedOrgId) {
+                                router.push(`/${selectedOrgId}/${project.id}/dashboard`)
+                              }
+                            }}
                             className={cn(
                               "text-xs font-semibold uppercase tracking-[0.2em]",
                               projectId === project.id ? "text-amber-600" : "text-muted-foreground",

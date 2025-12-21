@@ -81,6 +81,20 @@ function parseCycloneDX(data: UnknownRecord): ParsedSBOM {
   return { components, raw: data }
 }
 
+function extractSpdxPurl(pkg: UnknownRecord): string | undefined {
+  const refs = asArray<UnknownRecord>(pkg.externalRefs)
+  for (const ref of refs) {
+    const refType = asString(ref.referenceType)?.toLowerCase()
+    if (refType === "purl" || refType === "package-url") {
+      const locator = asString(ref.referenceLocator)
+      if (locator) {
+        return locator
+      }
+    }
+  }
+  return undefined
+}
+
 function parseSpdx(data: UnknownRecord): ParsedSBOM {
   const createdAt = parseDate((data.creationInfo as UnknownRecord | undefined)?.created)
   const packages = asArray<UnknownRecord>(data.packages)
@@ -98,7 +112,18 @@ function parseSpdx(data: UnknownRecord): ParsedSBOM {
     }
   })
 
-  return { components, raw: data }
+  const normalizedComponents = packages.map((pkg) => {
+    const license = asString(pkg.licenseConcluded) || asString(pkg.licenseDeclared)
+    return {
+      name: asString(pkg.name) || "Unknown",
+      version: asString(pkg.versionInfo) || "Unknown",
+      purl: extractSpdxPurl(pkg),
+      author: asString(pkg.supplier) || asString(pkg.originator),
+      license: license ? { id: license } : undefined,
+    }
+  })
+
+  return { components, raw: { components: normalizedComponents } }
 }
 
 export async function parseSbomFile(file: File): Promise<ParsedSBOM> {
@@ -116,6 +141,11 @@ export async function parseSbomFile(file: File): Promise<ParsedSBOM> {
   const components = asArray<UnknownRecord>(data.components)
   if (components.length > 0) {
     return parseCycloneDX(data)
+  }
+
+  const spdxPackages = asArray<UnknownRecord>(data.packages)
+  if (spdxPackages.length > 0) {
+    return parseSpdx(data)
   }
 
   throw new Error("Unsupported SBOM format. Please upload a CycloneDX or SPDX JSON file.")
