@@ -115,11 +115,6 @@ export function OrgProjectManager() {
     selectedOrgIdRef.current = selectedOrgId
   }, [selectedOrgId])
 
-  useEffect(() => {
-    if (selectedOrgId && projectId) {
-      router.push(`/${selectedOrgId}/${projectId}/dashboard`)
-    }
-  }, [projectId, router, selectedOrgId])
 
   useEffect(() => {
     if (!supabase) {
