@@ -49,7 +49,7 @@ export function OrgProjectManager() {
       .order("created_at", { ascending: false })
 
     if (orgError) {
-      setError("Unable to load organizations.")
+      setError(`Unable to load organizations: ${orgError.message}`)
       setIsLoading(false)
       return
     }
@@ -60,7 +60,7 @@ export function OrgProjectManager() {
       .order("created_at", { ascending: false })
 
     if (projectError) {
-      setError("Unable to load projects.")
+      setError(`Unable to load projects: ${projectError.message}`)
       setIsLoading(false)
       return
     }
@@ -87,7 +87,7 @@ export function OrgProjectManager() {
     const supabase = createClient()
     const { error: insertError } = await supabase.from("organizations").insert({ name: orgName.trim() })
     if (insertError) {
-      setError("Unable to create organization.")
+      setError(`Unable to create organization: ${insertError.message}`)
       return
     }
 
@@ -113,7 +113,7 @@ export function OrgProjectManager() {
       .insert({ organization_id: selectedOrgId, user_id: memberUserId.trim(), role: "member" })
 
     if (insertError) {
-      setError("Unable to add member. Ensure the user ID is valid.")
+      setError(`Unable to add member: ${insertError.message}`)
       return
     }
 
@@ -138,7 +138,7 @@ export function OrgProjectManager() {
       .insert({ name: projectName.trim(), organization_id: selectedOrgId })
 
     if (insertError) {
-      setError("Unable to create project.")
+      setError(`Unable to create project: ${insertError.message}`)
       return
     }
 
