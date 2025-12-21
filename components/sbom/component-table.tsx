@@ -37,13 +37,13 @@ export function ComponentTable({ components }: ComponentTableProps) {
   const getTypeColor = (type: SBOMComponent["type"]) => {
     switch (type) {
       case "library":
-        return "bg-blue-500/10 text-blue-600 border-blue-500/20"
+        return "bg-primary/10 text-primary border-primary/20"
       case "framework":
-        return "bg-purple-500/10 text-purple-600 border-purple-500/20"
+        return "bg-foreground/5 text-foreground/70 border-border/60"
       case "application":
-        return "bg-green-500/10 text-green-600 border-green-500/20"
+        return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
       default:
-        return "bg-muted text-muted-foreground"
+        return "bg-muted text-muted-foreground border-border/60"
     }
   }
 
@@ -54,7 +54,7 @@ export function ComponentTable({ components }: ComponentTableProps) {
   }
 
   return (
-    <Card className="rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+    <Card className="rounded-3xl border-border/60 bg-card/60 backdrop-blur-sm">
       <CardHeader>
         <div className="flex items-center justify-between gap-4">
           <CardTitle className="text-xl font-semibold">Component Inventory</CardTitle>
@@ -65,16 +65,16 @@ export function ComponentTable({ components }: ComponentTableProps) {
               placeholder="Search components..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 rounded-2xl border-border/50 bg-muted/30"
+              className="pl-9 rounded-2xl border-border/60 bg-muted/30"
             />
           </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-2xl border border-border/50 overflow-hidden">
+        <div className="rounded-2xl border border-border/60 overflow-hidden">
           <Table>
             <TableHeader>
-              <TableRow className="bg-muted/30 hover:bg-muted/30">
+              <TableRow className="bg-muted/40 hover:bg-muted/40">
                 <TableHead className="font-semibold">Component</TableHead>
                 <TableHead className="font-semibold">Version</TableHead>
                 <TableHead className="font-semibold">Type</TableHead>

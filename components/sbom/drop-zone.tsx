@@ -80,16 +80,16 @@ export function DropZone({ onFileUpload }: DropZoneProps) {
   }
 
   return (
-    <Card className="rounded-3xl border-2 border-dashed border-border/50 bg-card/30 backdrop-blur-sm transition-all hover:border-primary/50">
-      <CardContent className="p-12">
+    <Card className="rounded-3xl border-2 border-dashed border-border/60 bg-card/60 backdrop-blur-sm transition-all hover:border-primary/60">
+      <CardContent className="p-12 md:p-16">
         <div
           onDragEnter={handleDragIn}
           onDragLeave={handleDragOut}
           onDragOver={handleDrag}
           onDrop={handleDrop}
           className={cn(
-            "flex flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed p-12 transition-all",
-            isDragging ? "border-primary bg-primary/5 scale-105" : "border-border/30",
+            "relative flex flex-col items-center justify-center gap-4 rounded-2xl border border-dashed p-12 transition-all",
+            isDragging ? "border-primary bg-primary/10 scale-[1.02]" : "border-border/50 bg-background/40",
             uploadStatus === "success" && "border-green-500 bg-green-500/5",
             uploadStatus === "error" && "border-destructive bg-destructive/5",
           )}
@@ -99,7 +99,7 @@ export function DropZone({ onFileUpload }: DropZoneProps) {
               <div
                 className={cn(
                   "flex h-20 w-20 items-center justify-center rounded-3xl transition-all",
-                  isDragging ? "bg-primary/20 text-primary scale-110" : "bg-muted text-muted-foreground",
+                  isDragging ? "bg-primary/20 text-primary scale-105" : "bg-muted text-muted-foreground",
                 )}
               >
                 {isDragging ? <FileJson className="h-10 w-10" /> : <Upload className="h-10 w-10" />}
@@ -108,7 +108,7 @@ export function DropZone({ onFileUpload }: DropZoneProps) {
               <div className="text-center">
                 <h3 className="text-xl font-semibold text-foreground mb-2">Drop SBOM File Here</h3>
                 <p className="text-sm text-muted-foreground mb-4">or click to browse</p>
-                <p className="text-xs text-muted-foreground">Supports JSON, SPDX formats</p>
+                <p className="text-xs text-muted-foreground">Supports CycloneDX and SPDX JSON</p>
               </div>
 
               <input

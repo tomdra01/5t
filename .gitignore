@@ -1,4 +1,5 @@
 node_modules/
+.next/
 /next/out/
 /.env
 .DS_Store
