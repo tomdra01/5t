@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -21,9 +21,11 @@ interface Project {
 }
 
 export function OrgProjectManager() {
+  const supabase = useMemo(() => createClient(), [])
   const [organizations, setOrganizations] = useState<Organization[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const [selectedOrgId, setSelectedOrgId] = useState("")
+  const selectedOrgIdRef = useRef("")
   const [orgName, setOrgName] = useState("")
   const [projectName, setProjectName] = useState("")
   const [memberUserId, setMemberUserId] = useState("")
@@ -34,13 +36,14 @@ export function OrgProjectManager() {
   const [projectLoadError, setProjectLoadError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
-  const loadData = async () => {
-    setIsLoading(true)
+  const loadData = async (showLoading = true) => {
+    if (showLoading) {
+      setIsLoading(true)
+    }
     setError(null)
     setStatus(null)
     setOrgLoadError(null)
     setProjectLoadError(null)
-    const supabase = createClient()
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData.user) {
       setError("Sign in to manage organizations and projects.")
@@ -62,10 +65,19 @@ export function OrgProjectManager() {
     }
 
     const orgs = orgResult.data ?? []
-    setOrganizations(orgs)
-    setProjects(projectResult.data ?? [])
-    if (!selectedOrgId && orgs[0]) {
-      setSelectedOrgId(orgs[0].id)
+    if (!orgResult.error) {
+      setOrganizations(orgs)
+      const activeSelection = selectedOrgIdRef.current
+      if (orgs.length === 0) {
+        if (activeSelection) {
+          setSelectedOrgId("")
+        }
+      } else if (!activeSelection || !orgs.some((org) => org.id === activeSelection)) {
+        setSelectedOrgId(orgs[0].id)
+      }
+    }
+    if (!projectResult.error) {
+      setProjects(projectResult.data ?? [])
     }
     setIsLoading(false)
   }
@@ -74,13 +86,35 @@ export function OrgProjectManager() {
     loadData()
   }, [])
 
+  useEffect(() => {
+    selectedOrgIdRef.current = selectedOrgId
+  }, [selectedOrgId])
+
+  useEffect(() => {
+    const handleChange = () => {
+      loadData(false)
+    }
+
+    const channel = supabase
+      .channel("org-project-changes")
+      .on("postgres_changes", { event: "*", schema: "public", table: "organizations" }, handleChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "organization_members" }, handleChange)
+      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, handleChange)
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase])
+
   const handleCreateOrg = async () => {
+    setError(null)
+    setStatus(null)
     if (!orgName.trim()) {
       setError("Organization name is required.")
       return
     }
 
-    const supabase = createClient()
     const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
     if (!ownerId) {
       setError("Sign in to create an organization.")
@@ -89,7 +123,7 @@ export function OrgProjectManager() {
 
     const { data: orgData, error: insertError } = await supabase
       .from("organizations")
-      .insert({ name: orgName.trim(), owner_id: ownerId })
+      .insert({ name: orgName.trim() })
       .select("id")
       .single()
 
@@ -115,6 +149,8 @@ export function OrgProjectManager() {
   }
 
   const handleInviteMember = async () => {
+    setError(null)
+    setStatus(null)
     if (!selectedOrgId) {
       setError("Select an organization first.")
       return
@@ -125,7 +161,6 @@ export function OrgProjectManager() {
       return
     }
 
-    const supabase = createClient()
     const { error: insertError } = await supabase
       .from("organization_members")
       .insert({ organization_id: selectedOrgId, user_id: memberUserId.trim(), role: "member" })
@@ -140,6 +175,8 @@ export function OrgProjectManager() {
   }
 
   const handleCreateProject = async () => {
+    setError(null)
+    setStatus(null)
     if (!selectedOrgId) {
       setError("Select an organization first.")
       return
@@ -150,7 +187,6 @@ export function OrgProjectManager() {
       return
     }
 
-    const supabase = createClient()
     const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
     if (!ownerId) {
       setError("Sign in to create a project.")
