@@ -22,33 +22,37 @@ export default function RegisterPage() {
     setError(null)
     setMessage(null)
 
-    const supabase = createClient()
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-    })
+    try {
+      const supabase = createClient()
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+      })
 
-    if (signUpError) {
-      setError(signUpError.message)
-      setIsLoading(false)
-      return
-    }
+      if (signUpError) {
+        setError(signUpError.message)
+        return
+      }
 
-    if (signUpData.session) {
+      if (signUpData.session) {
+        router.push("/")
+        router.refresh()
+        return
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+      if (signInError) {
+        setError(signInError.message)
+        return
+      }
+
       router.push("/")
       router.refresh()
-      return
-    }
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-    if (signInError) {
-      setError(signInError.message)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to register.")
+    } finally {
       setIsLoading(false)
-      return
     }
-
-    router.push("/")
-    router.refresh()
   }
 
   return (
