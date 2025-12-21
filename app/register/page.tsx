@@ -23,7 +23,7 @@ export default function RegisterPage() {
     setMessage(null)
 
     const supabase = createClient()
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
     })
@@ -34,8 +34,21 @@ export default function RegisterPage() {
       return
     }
 
-    setMessage("Check your email to confirm your account, then sign in.")
-    setIsLoading(false)
+    if (signUpData.session) {
+      router.push("/")
+      router.refresh()
+      return
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    if (signInError) {
+      setError(signInError.message)
+      setIsLoading(false)
+      return
+    }
+
+    router.push("/")
+    router.refresh()
   }
 
   return (

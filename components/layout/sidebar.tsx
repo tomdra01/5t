@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Package, AlertTriangle, FileText, Settings } from "lucide-react"
+import { LayoutDashboard, Package, AlertTriangle, FileText, Settings, Building2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { href: "/sbom", icon: Package, label: "SBOM Portal" },
   { href: "/triage", icon: AlertTriangle, label: "Triage" },
   { href: "/audit", icon: FileText, label: "Audit" },
+  { href: "/organizations", icon: Building2, label: "Organizations" },
   { href: "/settings", icon: Settings, label: "Settings" },
 ]
 

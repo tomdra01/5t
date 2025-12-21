@@ -3,11 +3,10 @@
 import { Container } from "@/components/layout/container"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Bell, User, Database } from "lucide-react"
-import { OrgProjectManager } from "@/components/settings/org-project-manager"
+import { Bell, Database } from "lucide-react"
+import { UserSummary } from "@/components/settings/user-summary"
 
 export default function SettingsPage() {
   return (
@@ -18,8 +17,6 @@ export default function SettingsPage() {
           <h1 className="text-4xl font-bold text-foreground tracking-tight">Settings</h1>
           <p className="text-muted-foreground text-lg">Manage your compliance dashboard configuration</p>
         </div>
-
-        <OrgProjectManager />
 
         {/* Notification Settings */}
         <Card className="border-border bg-card">
@@ -62,38 +59,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* User Profile */}
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
-                <User className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-xl font-semibold">User Profile</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="name" className="text-sm font-medium">
-                Full Name
-              </Label>
-              <Input id="name" placeholder="John Doe" className="mt-2" />
-            </div>
-            <div>
-              <Label htmlFor="email" className="text-sm font-medium">
-                Email
-              </Label>
-              <Input id="email" type="email" placeholder="john@example.com" className="mt-2" />
-            </div>
-            <div>
-              <Label htmlFor="role" className="text-sm font-medium">
-                Role
-              </Label>
-              <Input id="role" placeholder="Security Engineer" className="mt-2" />
-            </div>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Save Changes</Button>
-          </CardContent>
-        </Card>
+        <UserSummary />
 
         {/* Integration Settings */}
         <Card className="border-border bg-card">
