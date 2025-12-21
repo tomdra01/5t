@@ -30,12 +30,16 @@ export function OrgProjectManager() {
   const [isLoading, setIsLoading] = useState(true)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [orgLoadError, setOrgLoadError] = useState<string | null>(null)
+  const [projectLoadError, setProjectLoadError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
   const loadData = async () => {
     setIsLoading(true)
     setError(null)
     setStatus(null)
+    setOrgLoadError(null)
+    setProjectLoadError(null)
     const supabase = createClient()
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData.user) {
@@ -45,31 +49,21 @@ export function OrgProjectManager() {
     }
     setCurrentUserId(userData.user.id)
 
-    const { data: orgData, error: orgError } = await supabase
-      .from("organizations")
-      .select("id,name,owner_id")
-      .order("created_at", { ascending: false })
+    const [orgResult, projectResult] = await Promise.all([
+      supabase.from("organizations").select("id,name,owner_id").order("created_at", { ascending: false }),
+      supabase.from("projects").select("id,name,organization_id").order("created_at", { ascending: false }),
+    ])
 
-    if (orgError) {
-      setError(`Unable to load organizations: ${orgError.message}`)
-      setIsLoading(false)
-      return
+    if (orgResult.error) {
+      setOrgLoadError(`Unable to load organizations: ${orgResult.error.message}`)
+    }
+    if (projectResult.error) {
+      setProjectLoadError(`Unable to load projects: ${projectResult.error.message}`)
     }
 
-    const { data: projectData, error: projectError } = await supabase
-      .from("projects")
-      .select("id,name,organization_id")
-      .order("created_at", { ascending: false })
-
-    if (projectError) {
-      setError(`Unable to load projects: ${projectError.message}`)
-      setIsLoading(false)
-      return
-    }
-
-    const orgs = orgData ?? []
+    const orgs = orgResult.data ?? []
     setOrganizations(orgs)
-    setProjects(projectData ?? [])
+    setProjects(projectResult.data ?? [])
     if (!selectedOrgId && orgs[0]) {
       setSelectedOrgId(orgs[0].id)
     }
@@ -115,6 +109,8 @@ export function OrgProjectManager() {
 
     setOrgName("")
     setStatus("Organization created.")
+    setOrganizations((prev) => [{ id: orgData.id, name: orgName.trim(), owner_id: ownerId }, ...prev])
+    setSelectedOrgId(orgData.id)
     loadData()
   }
 
@@ -289,6 +285,8 @@ export function OrgProjectManager() {
         )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
+        {orgLoadError && <p className="text-sm text-destructive">{orgLoadError}</p>}
+        {projectLoadError && <p className="text-sm text-destructive">{projectLoadError}</p>}
         {status && <p className="text-sm text-muted-foreground">{status}</p>}
       </CardContent>
     </Card>
