@@ -11,17 +11,17 @@ export default function SettingsPage() {
     <Container className="max-w-4xl">
       <div className="space-y-8">
         {/* Header */}
-        <div>
-          <h1 className="text-4xl font-bold text-foreground tracking-tight text-balance">Settings</h1>
-          <p className="text-muted-foreground mt-2 text-pretty">Manage your compliance dashboard configuration</p>
+        <div className="space-y-2">
+          <h1 className="text-4xl font-bold text-foreground tracking-tight">Settings</h1>
+          <p className="text-muted-foreground text-lg">Manage your compliance dashboard configuration</p>
         </div>
 
         {/* Notification Settings */}
-        <Card className="rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+        <Card className="border-border bg-card">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                <Bell className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Bell className="h-5 w-5 text-primary" />
               </div>
               <CardTitle className="text-xl font-semibold">Notifications</CardTitle>
             </div>
@@ -58,11 +58,11 @@ export default function SettingsPage() {
         </Card>
 
         {/* User Profile */}
-        <Card className="rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+        <Card className="border-border bg-card">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-500/10 text-blue-600">
-                <User className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                <User className="h-5 w-5 text-muted-foreground" />
               </div>
               <CardTitle className="text-xl font-semibold">User Profile</CardTitle>
             </div>
@@ -72,59 +72,59 @@ export default function SettingsPage() {
               <Label htmlFor="name" className="text-sm font-medium">
                 Full Name
               </Label>
-              <Input id="name" placeholder="John Doe" className="mt-2 rounded-2xl" />
+              <Input id="name" placeholder="John Doe" className="mt-2" />
             </div>
             <div>
               <Label htmlFor="email" className="text-sm font-medium">
                 Email
               </Label>
-              <Input id="email" type="email" placeholder="john@example.com" className="mt-2 rounded-2xl" />
+              <Input id="email" type="email" placeholder="john@example.com" className="mt-2" />
             </div>
             <div>
               <Label htmlFor="role" className="text-sm font-medium">
                 Role
               </Label>
-              <Input id="role" placeholder="Security Engineer" className="mt-2 rounded-2xl" />
+              <Input id="role" placeholder="Security Engineer" className="mt-2" />
             </div>
-            <Button className="rounded-2xl">Save Changes</Button>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Save Changes</Button>
           </CardContent>
         </Card>
 
         {/* Integration Settings */}
-        <Card className="rounded-3xl border-border/50 bg-card/50 backdrop-blur-sm">
+        <Card className="border-border bg-card">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-green-500/10 text-green-600">
-                <Database className="h-5 w-5" />
+              <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                <Database className="h-5 w-5 text-muted-foreground" />
               </div>
               <CardTitle className="text-xl font-semibold">Integrations</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl">
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
               <div>
                 <p className="text-sm font-medium">SBOM Scanner API</p>
-                <p className="text-xs text-muted-foreground mt-1">Connected</p>
+                <p className="text-xs text-muted-foreground mt-1">Not configured</p>
               </div>
-              <Button variant="outline" size="sm" className="rounded-xl bg-transparent">
+              <Button variant="outline" size="sm">
                 Configure
               </Button>
             </div>
-            <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl">
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
               <div>
                 <p className="text-sm font-medium">Vulnerability Database</p>
-                <p className="text-xs text-muted-foreground mt-1">Synced 2 hours ago</p>
+                <p className="text-xs text-muted-foreground mt-1">Not configured</p>
               </div>
-              <Button variant="outline" size="sm" className="rounded-xl bg-transparent">
+              <Button variant="outline" size="sm">
                 Configure
               </Button>
             </div>
-            <div className="flex items-center justify-between p-4 bg-muted/20 rounded-2xl">
+            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
               <div>
                 <p className="text-sm font-medium">Email Service</p>
-                <p className="text-xs text-muted-foreground mt-1">Active</p>
+                <p className="text-xs text-muted-foreground mt-1">Not configured</p>
               </div>
-              <Button variant="outline" size="sm" className="rounded-xl bg-transparent">
+              <Button variant="outline" size="sm">
                 Configure
               </Button>
             </div>
