@@ -34,7 +34,25 @@ export async function updateVulnerabilityAction({
     updated_at: new Date().toISOString(),
   }
 
-  if (status !== undefined) updates.status = status
+  if (status !== undefined) {
+    // Map UI status to DB status
+    let dbStatus = status
+    switch (status) {
+      case "discovered":
+        dbStatus = "Open"
+        break
+      case "in-remediation":
+        dbStatus = "Triaged"
+        break
+      case "resolved":
+        dbStatus = "Patched"
+        break
+      case "reported":
+        dbStatus = "Reported"
+        break
+    }
+    updates.status = dbStatus
+  }
   if (assignedTo !== undefined) updates.assigned_to = assignedTo
   if (remediationNotes !== undefined) updates.remediation_notes = remediationNotes
 

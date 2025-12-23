@@ -33,6 +33,18 @@ export function ComplianceReportList({ reports }: ComplianceReportListProps) {
         )
     }
 
+    const handleDownload = (report: ComplianceReport) => {
+        const data = JSON.stringify(report, null, 2)
+        const blob = new Blob([data], { type: "application/json" })
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `compliance-report-${report.id.slice(0, 8)}.json`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+    }
+
     return (
         <div className="rounded-3xl border border-border/50 overflow-hidden bg-card/50 backdrop-blur-sm">
             <Table>
@@ -70,7 +82,12 @@ export function ComplianceReportList({ reports }: ComplianceReportListProps) {
                                 )}
                             </TableCell>
                             <TableCell className="text-right">
-                                <Button variant="ghost" size="sm" className="gap-2 h-8">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-2 h-8"
+                                    onClick={() => handleDownload(report)}
+                                >
                                     <Download className="h-3.5 w-3.5" />
                                     Download
                                 </Button>

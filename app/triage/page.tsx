@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Container } from "@/components/layout/container"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -50,76 +50,74 @@ export default function TriagePage() {
   const [report, setReport] = useState<ComplianceReportSummary | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
-  useEffect(() => {
-    const loadVulnerabilities = async () => {
-      setIsLoading(true)
-      setError(null)
+  const loadVulnerabilities = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
 
-      if (!projectId) {
-        setVulnerabilities([])
-        setIsLoading(false)
-        return
-      }
-
-      const supabase = createClient()
-      const { data: components, error: componentError } = await supabase
-        .from("sbom_components")
-        .select("id,project_id,name,version,purl,license,author,added_at")
-        .eq("project_id", projectId)
-
-      if (componentError) {
-        setError("Unable to load SBOM components for this project.")
-        setIsLoading(false)
-        return
-      }
-
-      const componentRows = (components ?? []) as SbomComponentRow[]
-      const componentIds = componentRows.map((component) => component.id)
-      if (componentIds.length === 0) {
-        setVulnerabilities([])
-        setIsLoading(false)
-        return
-      }
-
-      const { data: vulnRows, error: vulnError } = await supabase
-        .from("vulnerabilities")
-        .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")
-        .in("component_id", componentIds)
-
-      if (vulnError) {
-        setError("Unable to load vulnerabilities for this project.")
-        setIsLoading(false)
-        return
-      }
-
-      const componentNameById = new Map(componentRows.map((component) => [component.id, component.name]))
-      const mapped = (vulnRows ?? []).map((row) => {
-        const vulnerability = row as VulnerabilityRow
-        return {
-          id: vulnerability.id,
-          cveId: vulnerability.cve_id,
-          title: vulnerability.remediation_notes ?? vulnerability.cve_id,
-          severity: mapSeverity(vulnerability.severity),
-          cvssScore: 0,
-          affectedComponent: componentNameById.get(vulnerability.component_id) ?? "Unknown",
-          discoveredAt: new Date(vulnerability.discovered_at),
-          reportingDeadline: new Date(vulnerability.reporting_deadline),
-          remediationDeadline: new Date(vulnerability.reporting_deadline),
-          status: mapStatus(vulnerability.status),
-          ownership: vulnerability.assigned_to ? vulnerability.assigned_to.slice(0, 8) + "…" : "Unassigned",
-          remediationStatus: vulnerability.status ?? "Open",
-          description: vulnerability.remediation_notes ?? undefined,
-        } satisfies Vulnerability
-      })
-
-      setVulnerabilities(mapped)
+    if (!projectId) {
+      setVulnerabilities([])
       setIsLoading(false)
+      return
     }
 
-    useEffect(() => {
-      loadVulnerabilities()
-    }, [projectId])
+    const supabase = createClient()
+    const { data: components, error: componentError } = await supabase
+      .from("sbom_components")
+      .select("id,project_id,name,version,purl,license,author,added_at")
+      .eq("project_id", projectId)
+
+    if (componentError) {
+      setError("Unable to load SBOM components for this project.")
+      setIsLoading(false)
+      return
+    }
+
+    const componentRows = (components ?? []) as SbomComponentRow[]
+    const componentIds = componentRows.map((component) => component.id)
+    if (componentIds.length === 0) {
+      setVulnerabilities([])
+      setIsLoading(false)
+      return
+    }
+
+    const { data: vulnRows, error: vulnError } = await supabase
+      .from("vulnerabilities")
+      .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")
+      .in("component_id", componentIds)
+
+    if (vulnError) {
+      setError("Unable to load vulnerabilities for this project.")
+      setIsLoading(false)
+      return
+    }
+
+    const componentNameById = new Map(componentRows.map((component) => [component.id, component.name]))
+    const mapped = (vulnRows ?? []).map((row) => {
+      const vulnerability = row as VulnerabilityRow
+      return {
+        id: vulnerability.id,
+        cveId: vulnerability.cve_id,
+        title: vulnerability.remediation_notes ?? vulnerability.cve_id,
+        severity: mapSeverity(vulnerability.severity),
+        cvssScore: 0,
+        affectedComponent: componentNameById.get(vulnerability.component_id) ?? "Unknown",
+        discoveredAt: new Date(vulnerability.discovered_at),
+        reportingDeadline: new Date(vulnerability.reporting_deadline),
+        remediationDeadline: new Date(vulnerability.reporting_deadline),
+        status: mapStatus(vulnerability.status),
+        ownership: vulnerability.assigned_to ? vulnerability.assigned_to.slice(0, 8) + "…" : "Unassigned",
+        remediationStatus: vulnerability.status ?? "Open",
+        description: vulnerability.remediation_notes ?? undefined,
+      } satisfies Vulnerability
+    })
+
+    setVulnerabilities(mapped)
+    setIsLoading(false)
   }, [projectId])
+
+  useEffect(() => {
+    loadVulnerabilities()
+  }, [loadVulnerabilities])
 
   const stats = useMemo(() => {
     const total = vulnerabilities.length
