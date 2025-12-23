@@ -11,7 +11,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "5teen.app - CRA Compliance Dashboard",
   description: "Professional SaaS application for EU Cyber Resilience Act compliance management",
-  generator: "v0.app",
+  generator: "5teen",
   icons: {
     icon: [
       {

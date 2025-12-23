@@ -1,30 +1,53 @@
-# CRA Compliance Dashboard
+# 5teen - CRA Compliance & Vulnerability Management Tool
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+## Project Overview
+**Course:** Secure Software Development (E2025)
+**Student:** Tomas Dracka
+**Date:** 18.11.2025
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/velurai/v0-cra-compliance-dashboard)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/viiTVzztAC4)
+## Problem Statement
+The European Cyber Resilience Act (CRA) introduces strict requirements for manufacturers of products with digital elements. While many companies can generate an SBOM (Software Bill of Materials) to show *what* is inside their software, they often lack the systems to manage what comes *after*:
+*   **Article 14**: Reporting actively exploited vulnerabilities within 24 hours.
+*   **Article 15**: Documenting vulnerability handling and remediation.
+*   **Annex I**: Proving continuous vulnerability management.
 
-## Overview
+This project addresses the gap between simple SBOM generation and full CRA compliance. Agramkow, like many companies, needs a dedicated workflow to transform these legal obligations into an integrated part of the development process.
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+## Solution: 5teen
+5teen is a lightweight, dedicated CRP (Cyber Resilience Platform) designed to:
+1.  **Ingest SBOMs**: Upload CycloneDX files to create a searchable inventory of components.
+2.  **Automate Triage**: Automatically scan components for vulnerabilities (via OSV.dev) and calculate reporting deadlines (e.g., 24h from discovery).
+3.  **Manage Responsibility**: Assign vulnerabilities to specific developers to ensure accountability.
+4.  **Track Remediation**: Log status changes (Open -> In Remediation -> Resolved) and remediation notes.
+5.  **Audit Compliance**: Generate "Annex I Summary" reports to prove to regulators that a repeatable security process is in place.
 
-## Deployment
+## Features
+*   **SBOM Portal**: Drag-and-drop upload with duplicate detection and automated vulnerability scanning.
+*   **Interactive Triage Board**:
+    *   View all active vulnerabilities.
+    *   Sort by Severity (Critical, High, etc.) or Deadline.
+    *   Assign owners and update status.
+*   **Audit Center**:
+    *   Generate compliance snapshots.
+    *   View a history of all reports for audit trails.
+    *   Track compliance status (Compliant/Non-Compliant) based on recent activity.
 
-Your project is live at:
+## Tech Stack
+*   **Frontend**: Next.js 14, React, Tailwind CSS, Lucide Icons.
+*   **Backend**: Supabase (PostgreSQL) for relational data and real-time updates.
+*   **Security**: Row Level Security (RLS) enabled on all database tables.
+*   **Integration**: OSV.dev API for live vulnerability data.
 
-**[https://vercel.com/velurai/v0-cra-compliance-dashboard](https://vercel.com/velurai/v0-cra-compliance-dashboard)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.app/chat/viiTVzztAC4](https://v0.app/chat/viiTVzztAC4)**
-
-## How It Works
-
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+## Getting Started
+1.  **Clone the repository**.
+2.  **Install dependencies**:
+    ```bash
+    npm install
+    # or
+    pnpm install
+    ```
+3.  **Run the development server**:
+    ```bash
+    npm run dev
+    ```
+4.  **Open** [http://localhost:3000](http://localhost:3000) in your browser.
