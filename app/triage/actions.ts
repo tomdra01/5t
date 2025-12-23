@@ -4,6 +4,52 @@ import { createClient } from "@/utils/supabase/server"
 import type { ComplianceReportSummary } from "@/types/compliance"
 import type { SbomComponentRow, VulnerabilityRow } from "@/types/db"
 
+interface UpdateVulnerabilityInput {
+  vulnerabilityId: string
+  status?: string
+  assignedTo?: string | null
+  remediationNotes?: string | null
+}
+
+interface UpdateVulnerabilityResult {
+  success: boolean
+  message: string
+}
+
+export async function updateVulnerabilityAction({
+  vulnerabilityId,
+  status,
+  assignedTo,
+  remediationNotes,
+}: UpdateVulnerabilityInput): Promise<UpdateVulnerabilityResult> {
+  const supabase = await createClient()
+
+  // Verify auth
+  const { data: userData, error: userError } = await supabase.auth.getUser()
+  if (userError || !userData.user) {
+    return { success: false, message: "Sign in to update vulnerabilities." }
+  }
+
+  const updates: Partial<VulnerabilityRow> = {
+    updated_at: new Date().toISOString(),
+  }
+
+  if (status !== undefined) updates.status = status
+  if (assignedTo !== undefined) updates.assigned_to = assignedTo
+  if (remediationNotes !== undefined) updates.remediation_notes = remediationNotes
+
+  const { error } = await supabase
+    .from("vulnerabilities")
+    .update(updates)
+    .eq("id", vulnerabilityId)
+
+  if (error) {
+    return { success: false, message: `Update failed: ${error.message}` }
+  }
+
+  return { success: true, message: "Vulnerability updated successfully." }
+}
+
 interface GenerateComplianceReportInput {
   projectId: string
 }
