@@ -88,26 +88,53 @@ export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Pr
   const errors: string[] = []
 
   for (const component of components) {
-    const { data: inserted, error: insertError } = await supabase
+    // Check if component exists
+    const { data: existing } = await supabase
       .from("sbom_components")
-      .insert({
-        project_id: projectId,
-        name: component.name ?? "Unknown",
-        version: component.version ?? "Unknown",
-        purl: component.purl ?? null,
-        license: extractLicense(component),
-        author: component.author ?? null,
-      })
       .select("id")
-      .single<SbomComponentRow>()
+      .eq("project_id", projectId)
+      .eq("name", component.name ?? "Unknown")
+      .eq("version", component.version ?? "Unknown")
+      .single()
 
-    if (insertError || !inserted) {
-      errors.push(insertError?.message ?? "Failed to insert SBOM component.")
-      continue
+    let insertedId: string | null = existing?.id ?? null
+
+    if (existing) {
+      // Update the timestamp to indicate it was seen again
+      const { error: updateError } = await supabase
+        .from("sbom_components")
+        .update({ added_at: new Date().toISOString() })
+        .eq("id", existing.id)
+
+      if (updateError) {
+        errors.push(`Failed to update timestamp for ${component.name}.`)
+      }
+    } else {
+      // Insert new component
+      const { data: inserted, error: insertError } = await supabase
+        .from("sbom_components")
+        .insert({
+          project_id: projectId,
+          name: component.name ?? "Unknown",
+          version: component.version ?? "Unknown",
+          purl: component.purl ?? null,
+          license: extractLicense(component),
+          author: component.author ?? null,
+        })
+        .select("id")
+        .single<SbomComponentRow>()
+
+      if (insertError || !inserted) {
+        errors.push(insertError?.message ?? "Failed to insert SBOM component.")
+        continue
+      }
+      insertedId = inserted.id
+      componentsInserted += 1
     }
 
-    componentsInserted += 1
+    if (!insertedId) continue
 
+    // Proceed with vulnerability scan (fresh scan for existing components too)
     if (!component.purl) {
       continue
     }
@@ -129,8 +156,25 @@ export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Pr
       const vulns = scanResult.vulns ?? []
 
       for (const vuln of vulns) {
+        // Check if vulnerability already exists for this component
+        const { data: existingVuln } = await supabase
+          .from("vulnerabilities")
+          .select("id")
+          .eq("component_id", insertedId)
+          .eq("cve_id", vuln.id)
+          .single()
+
+        if (existingVuln) {
+          // Update updated_at
+          await supabase
+            .from("vulnerabilities")
+            .update({ updated_at: new Date().toISOString() })
+            .eq("id", existingVuln.id)
+          continue
+        }
+
         const { error: vulnError } = await supabase.from("vulnerabilities").insert({
-          component_id: inserted.id,
+          component_id: insertedId,
           cve_id: vuln.id,
           severity: toSeverity(vuln.severity),
           status: "Open",
