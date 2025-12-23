@@ -116,7 +116,9 @@ export default function TriagePage() {
       setIsLoading(false)
     }
 
-    loadVulnerabilities()
+    useEffect(() => {
+      loadVulnerabilities()
+    }, [projectId])
   }, [projectId])
 
   const stats = useMemo(() => {
@@ -248,7 +250,7 @@ export default function TriagePage() {
             </div>
           </Card>
         ) : (
-          <VulnerabilityTable vulnerabilities={vulnerabilities} />
+          <VulnerabilityTable vulnerabilities={vulnerabilities} onRefresh={loadVulnerabilities} />
         )}
       </div>
     </Container>
