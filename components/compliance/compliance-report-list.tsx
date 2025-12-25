@@ -10,9 +10,10 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { FileText, Download, CheckCircle, XCircle } from "lucide-react"
+import { FileText, Eye, CheckCircle, XCircle } from "lucide-react"
 import type { ComplianceReport } from "@/app/audit/actions"
 import { format } from "date-fns"
+import Link from "next/link"
 
 interface ComplianceReportListProps {
     reports: ComplianceReport[]
@@ -31,18 +32,6 @@ export function ComplianceReportList({ reports }: ComplianceReportListProps) {
                 </p>
             </div>
         )
-    }
-
-    const handleDownload = (report: ComplianceReport) => {
-        const data = JSON.stringify(report, null, 2)
-        const blob = new Blob([data], { type: "application/json" })
-        const url = URL.createObjectURL(blob)
-        const link = document.createElement("a")
-        link.href = url
-        link.download = `compliance-report-${report.id.slice(0, 8)}.json`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
     }
 
     return (
@@ -71,26 +60,21 @@ export function ComplianceReportList({ reports }: ComplianceReportListProps) {
                             </TableCell>
                             <TableCell>{report.generatorEmail}</TableCell>
                             <TableCell>
-                                {report.sentToRegulator ? (
-                                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1">
-                                        <CheckCircle className="h-3 w-3" /> Sent
-                                    </Badge>
-                                ) : (
-                                    <Badge variant="outline" className="bg-orange-500/10 text-orange-600 border-orange-500/20 gap-1">
-                                        <XCircle className="h-3 w-3" /> Pending
-                                    </Badge>
-                                )}
+                                <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 gap-1">
+                                    <CheckCircle className="h-3 w-3" /> Ready
+                                </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="gap-2 h-8"
-                                    onClick={() => handleDownload(report)}
-                                >
-                                    <Download className="h-3.5 w-3.5" />
-                                    Download
-                                </Button>
+                                <Link href={`/reports/${report.id}/print`} target="_blank">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="gap-2 h-8"
+                                    >
+                                        <Eye className="h-3.5 w-3.5" />
+                                        View Report
+                                    </Button>
+                                </Link>
                             </TableCell>
                         </TableRow>
                     ))}

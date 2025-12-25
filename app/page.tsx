@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react"
 import { Container } from "@/components/layout/container"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { DashboardTabs } from "@/components/dashboard/dashboard-tabs"
-import { Upload, AlertTriangle, Package, FileText, TrendingUp } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Upload, AlertTriangle, Package, FileText, TrendingUp, BarChart3, Clock, FileDown } from "lucide-react"
 import Link from "next/link"
 import { useProjectContext } from "@/components/project-context"
 import { createClient } from "@/utils/supabase/client"
 import type { ComplianceReportRow, SbomComponentRow, VulnerabilityRow } from "@/types/db"
-import { ComplianceHealthScore } from "@/components/dashboard/compliance-health-score"
+import { RadialComplianceChart } from "@/components/charts/radial-compliance-chart"
+import { VulnerabilityTrendChart } from "@/components/charts/vulnerability-trend-chart"
+import { SeverityDistributionChart } from "@/components/charts/severity-distribution-chart"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
 import { generateComplianceReport } from "@/app/triage/actions"
 import { toast } from "sonner"
@@ -125,7 +127,6 @@ export default function DashboardPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "vulnerabilities" },
         () => {
-          // Debounce or just reload
           console.log("Realtime update: vulnerabilities")
           toast.info("New vulnerabilities detected. Updating dashboard...", {
             duration: 3000,
@@ -158,203 +159,281 @@ export default function DashboardPage() {
     return vulnerabilities.filter((vuln) => new Date(vuln.reporting_deadline) < now).length
   }, [vulnerabilities])
 
-  const tabs = [
-    {
-      id: "overview",
-      label: "Overview",
-      content: (
-        <div className="space-y-8">
-          {!projectId && (
-            <Card className="border-border/60 bg-card/70 p-6">
-              <p className="text-sm text-muted-foreground">Select a project to view dashboard metrics.</p>
-            </Card>
-          )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="p-6 border-border/60 bg-card/70">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
-                  <Package className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{components.length}</p>
-                  <p className="text-sm text-muted-foreground">Components</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6 border-border/60 bg-card/70">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
-                  <AlertTriangle className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{vulnerabilities.length}</p>
-                  <p className="text-sm text-muted-foreground">Vulnerabilities</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6 border-border/60 bg-card/70">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
-                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{overdueCount}</p>
-                  <p className="text-sm text-muted-foreground">Overdue Deadlines</p>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="p-6 border-border/60 bg-card/70">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
-                  <FileText className="h-5 w-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-foreground">{reports.length}</p>
-                  <p className="text-sm text-muted-foreground">Reports</p>
-                </div>
-              </div>
-            </Card>
-          </div>
-
-          <Card className="p-6 border-border/60 bg-card/70">
-            <ComplianceHealthScore totalVulnerabilities={vulnerabilities.length} overdueDeadlines={overdueCount} />
-          </Card>
-
-          <Card className="border-border/60 bg-card/70">
-            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
-                <Upload className="h-8 w-8 text-primary" />
-              </div>
-              <h2 className="text-2xl font-semibold text-foreground mb-2">Get Started with SBOM Upload</h2>
-              <p className="text-muted-foreground max-w-md mb-6">
-                Upload your Software Bill of Materials (SBOM) to begin tracking compliance with CRA requirements.
-                Supports SPDX and CycloneDX formats.
-              </p>
-              <Link href="/sbom">
-                <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Upload SBOM</Button>
-              </Link>
-            </div>
-          </Card>
-        </div>
-      ),
-    },
-    {
-      id: "workflows",
-      label: "Workflows",
-      content: (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link href="/triage">
-            <Card className="p-6 border-border/60 bg-card/70 hover:border-primary/50 transition-colors cursor-pointer">
-              <AlertTriangle className="h-8 w-8 text-primary mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Vulnerability Triage</h3>
-              <p className="text-sm text-muted-foreground">
-                Manage and track vulnerabilities with 24-hour reporting deadlines
-              </p>
-            </Card>
-          </Link>
-
-          <Link href="/audit">
-            <Card className="p-6 border-border/60 bg-card/70 hover:border-primary/50 transition-colors cursor-pointer">
-              <FileText className="h-8 w-8 text-primary mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Audit Reports</h3>
-              <p className="text-sm text-muted-foreground">
-                Generate CRA Annex I compliance documentation for regulators
-              </p>
-            </Card>
-          </Link>
-
-          <Link href="/settings">
-            <Card className="p-6 border-border/60 bg-card/70 hover:border-primary/50 transition-colors cursor-pointer">
-              <Package className="h-8 w-8 text-primary mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">Configuration</h3>
-              <p className="text-sm text-muted-foreground">Set up integrations and customize compliance workflows</p>
-            </Card>
-          </Link>
-        </div>
-      ),
-    },
-    {
-      id: "reporting",
-      label: "Reporting",
-      content: (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="p-6 border-border/60 bg-card/70 lg:col-span-2">
-            <div className="flex items-start justify-between gap-6">
-              <div>
-                <h3 className="text-xl font-semibold text-foreground mb-2">Audit-ready reporting</h3>
-                <p className="text-sm text-muted-foreground mb-6 max-w-xl">
-                  Generate regulator-ready PDFs and JSON summaries once your SBOM and vulnerability data are in place.
-                  Keep evidence, ownership, and remediation milestones aligned to CRA Articles 14 and 15.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <Button
-                    className="bg-primary text-primary-foreground hover:bg-primary/90"
-                    disabled={!projectId || isGenerating}
-                    onClick={async () => {
-                      if (!projectId) return
-                      setIsGenerating(true)
-                      const result = await generateComplianceReport({ projectId })
-                      setReportMessage(result.message)
-                      setIsGenerating(false)
-                    }}
-                  >
-                    {isGenerating ? "Generating..." : "Generate report"}
-                  </Button>
-                  <Link href="/triage">
-                    <Button variant="outline">Review triage</Button>
-                  </Link>
-                </div>
-                {reportMessage && <p className="text-xs text-muted-foreground mt-3">{reportMessage}</p>}
-              </div>
-              <div className="hidden md:flex h-14 w-14 rounded-2xl bg-primary/10 items-center justify-center text-primary">
-                <FileText className="h-7 w-7" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6 border-border/60 bg-card/70">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
-                <Upload className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">SBOM Intake</p>
-                <p className="text-lg font-semibold text-foreground">Upload latest inventory</p>
-              </div>
-            </div>
-            <p className="text-sm text-muted-foreground mb-5">
-              Keep component inventories current to surface vulnerabilities faster and strengthen evidence trails.
-            </p>
-            <Link href="/sbom">
-              <Button variant="outline" className="w-full">
-                Upload SBOM
-              </Button>
-            </Link>
-          </Card>
-
-          <Card className="p-6 border-border/60 bg-card/70">
-            <h4 className="text-lg font-semibold text-foreground mb-3">Recent Activity</h4>
-            <RecentActivity items={activity} />
-          </Card>
-        </div>
-      ),
-    },
-  ]
+  const vulnerableComponents = useMemo(() => {
+    const componentIds = new Set(vulnerabilities.map((v) => v.component_id))
+    return componentIds.size
+  }, [vulnerabilities])
 
   return (
     <Container>
-      <div className="space-y-8">
+      <div className="space-y-6">
+        {/* Header */}
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold text-foreground tracking-tight">CRA Compliance Dashboard</h1>
-          <p className="text-muted-foreground text-lg">EU Cyber Resilience Act Article 14 & 15 Management</p>
+          <h1 className="text-4xl font-bold text-foreground tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground text-lg">EU Cyber Resilience Act Compliance Management</p>
           {isLoading && <p className="text-xs text-muted-foreground">Loading project data…</p>}
         </div>
 
-        <DashboardTabs tabs={tabs} initialTabId="overview" />
+        {!projectId && (
+          <Card className="border-border/60 bg-card/70 p-6">
+            <p className="text-sm text-muted-foreground">Select a project to view dashboard metrics.</p>
+          </Card>
+        )}
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        {/* View Modes */}
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full max-w-md grid-cols-4">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="reports">Reports</TabsTrigger>
+          </TabsList>
+
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6 mt-6">
+            {/* Quick Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="p-6 border-border/60 bg-card/70">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
+                    <Package className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{components.length}</p>
+                    <p className="text-sm text-muted-foreground">Components</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-border/60 bg-card/70">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{vulnerabilities.length}</p>
+                    <p className="text-sm text-muted-foreground">Vulnerabilities</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-border/60 bg-card/70">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
+                    <TrendingUp className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{overdueCount}</p>
+                    <p className="text-sm text-muted-foreground">Overdue</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-border/60 bg-card/70">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-secondary flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">{reports.length}</p>
+                    <p className="text-sm text-muted-foreground">Reports</p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Compliance Chart */}
+              <div className="lg:col-span-1">
+                <RadialComplianceChart
+                  totalVulnerabilities={vulnerabilities.length}
+                  overdueDeadlines={overdueCount}
+                />
+              </div>
+
+              {/* Recent Activity */}
+              <Card className="lg:col-span-2 border-border/60 bg-card/70">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold">Recent Activity</CardTitle>
+                  <CardDescription>Latest SBOM uploads and compliance reports</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <RecentActivity items={activity} />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Upload Section */}
+            <Card className="border-border/60 bg-card/70">
+              <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-6">
+                  <Upload className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-2xl font-semibold text-foreground mb-2">Upload SBOM</h2>
+                <p className="text-muted-foreground max-w-md mb-6">
+                  Upload your Software Bill of Materials to track compliance. Supports SPDX and CycloneDX formats.
+                </p>
+                <Link href="/sbom">
+                  <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Upload SBOM</Button>
+                </Link>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* Analytics Tab */}
+          <TabsContent value="analytics" className="space-y-6 mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <VulnerabilityTrendChart vulnerabilities={vulnerabilities} />
+              <SeverityDistributionChart vulnerabilities={vulnerabilities} />
+            </div>
+
+            {/* Additional Analytics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="p-6 border-border/60 bg-card/70">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Vulnerable Components</p>
+                  <p className="text-3xl font-bold">{vulnerableComponents}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {((vulnerableComponents / Math.max(components.length, 1)) * 100).toFixed(1)}% of total
+                  </p>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-border/60 bg-card/70">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Average Time to Patch</p>
+                  <p className="text-3xl font-bold">—</p>
+                  <p className="text-xs text-muted-foreground">Coming soon</p>
+                </div>
+              </Card>
+
+              <Card className="p-6 border-border/60 bg-card/70">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Compliance Score</p>
+                  <p className="text-3xl font-bold">
+                    {vulnerabilities.length === 0 ? 100 : Math.max(0, Math.round(100 - (overdueCount / vulnerabilities.length) * 100))}%
+                  </p>
+                  <p className="text-xs text-muted-foreground">Based on deadlines</p>
+                </div>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Timeline Tab */}
+          <TabsContent value="timeline" className="space-y-6 mt-6">
+            <Card className="border-border/60 bg-card/70">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Vulnerability Timeline</CardTitle>
+                <CardDescription>Track vulnerability discovery and resolution over time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {vulnerabilities.slice(0, 10).map((vuln) => (
+                    <div key={vuln.id} className="flex items-start gap-4 border-l-2 border-primary pl-4 py-2">
+                      <div className="flex-1">
+                        <p className="font-medium">{vuln.cve_id}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Discovered {new Date(vuln.discovered_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 text-xs rounded-full ${vuln.severity === "Critical" ? "bg-red-500/10 text-red-600" :
+                          vuln.severity === "High" ? "bg-orange-500/10 text-orange-600" :
+                            vuln.severity === "Medium" ? "bg-yellow-500/10 text-yellow-600" :
+                              "bg-green-500/10 text-green-600"
+                          }`}>
+                          {vuln.severity}
+                        </span>
+                        <span className={`px-2 py-1 text-xs rounded-full ${vuln.status === "Patched" ? "bg-green-500/10 text-green-600" :
+                          vuln.status === "Triaged" ? "bg-blue-500/10 text-blue-600" :
+                            "bg-gray-500/10 text-gray-600"
+                          }`}>
+                          {vuln.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                  {vulnerabilities.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No vulnerabilities yet</p>
+                  )}
+                  {vulnerabilities.length > 10 && (
+                    <div className="text-center pt-4">
+                      <Link href="/triage">
+                        <Button variant="outline">View All Vulnerabilities</Button>
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Reports Tab */}
+          <TabsContent value="reports" className="space-y-6 mt-6">
+            <Card className="border-border/60 bg-card/70">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">CRA Compliance Reports</CardTitle>
+                <CardDescription>Generate audit-ready compliance documentation</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-6">
+                    <div>
+                      <h3 className="text-lg font-semibold mb-2">Generate Compliance Report</h3>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Create regulator-ready documentation with vulnerability summaries and CRA Article 14/15 compliance status.
+                      </p>
+                      <Button
+                        className="bg-primary text-primary-foreground hover:bg-primary/90"
+                        disabled={!projectId || isGenerating}
+                        onClick={async () => {
+                          if (!projectId) return
+                          setIsGenerating(true)
+                          const result = await generateComplianceReport({ projectId })
+                          setReportMessage(result.message)
+                          setIsGenerating(false)
+                          toast.success("Report generated successfully")
+                        }}
+                      >
+                        {isGenerating ? "Generating..." : "Generate Report"}
+                      </Button>
+                      {reportMessage && <p className="text-xs text-muted-foreground mt-3">{reportMessage}</p>}
+                    </div>
+                    <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                      <FileDown className="h-7 w-7 text-primary" />
+                    </div>
+                  </div>
+
+                  {reports.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium mb-3">Recent Reports</h4>
+                      <div className="space-y-2">
+                        {reports.map((report) => (
+                          <div key={report.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                            <div>
+                              <p className="text-sm font-medium">{report.report_type || "Compliance Report"}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(report.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            <Link href={`/reports/${report.id}/print`} target="_blank">
+                              <Button variant="ghost" size="sm">
+                                <FileText className="h-4 w-4 mr-2" />
+                                View Report
+                              </Button>
+                            </Link>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </Container>
   )

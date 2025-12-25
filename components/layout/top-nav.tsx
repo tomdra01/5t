@@ -3,6 +3,7 @@
 import { Bell, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { UserMenu } from "@/components/layout/user-menu"
 
 export function TopNav() {
   return (
@@ -27,14 +28,7 @@ export function TopNav() {
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary animate-pulse-amber" />
           </Button>
 
-          <div className="ml-2 flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-muted/50 border border-border/50">
-            <div className="h-7 w-7 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-semibold text-xs">
-              CRA
-            </div>
-            <div className="text-sm">
-              <div className="font-medium text-foreground">Compliance Mode</div>
-            </div>
-          </div>
+          <UserMenu />
         </div>
       </div>
     </header>

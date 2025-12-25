@@ -1,26 +1,20 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useMemo, useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/utils/supabase/client"
-import { cn } from "@/lib/utils"
 import { useProjectContext } from "@/components/project-context"
 import { useRouter } from "next/navigation"
 import type { OrganizationMemberRow, OrganizationRow, ProjectRow, SbomComponentRow, VulnerabilityRow } from "@/types/db"
-
-const cardClass =
-  "bg-white/80 backdrop-blur-md border border-neutral-200 rounded-[2rem] shadow-sm hover:shadow-md transition-all"
+import { Building2, FolderKanban, Users } from "lucide-react"
+import { toast } from "sonner"
 
 export function OrgProjectManager() {
-  const supabase = useMemo(() => {
-    if (typeof window === "undefined") {
-      return null
-    }
-    return createClient()
-  }, [])
+  const supabase = useMemo(() => createClient(), [])
   const { projectId, setProjectId } = useProjectContext()
   const router = useRouter()
   const [organizations, setOrganizations] = useState<OrganizationRow[]>([])
@@ -29,81 +23,43 @@ export function OrgProjectManager() {
   const [components, setComponents] = useState<SbomComponentRow[]>([])
   const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityRow[]>([])
   const [selectedOrgId, setSelectedOrgId] = useState("")
-  const selectedOrgIdRef = useRef("")
   const [orgName, setOrgName] = useState("")
   const [projectName, setProjectName] = useState("")
   const [memberUserId, setMemberUserId] = useState("")
   const [isLoading, setIsLoading] = useState(true)
-  const [status, setStatus] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [orgLoadError, setOrgLoadError] = useState<string | null>(null)
-  const [projectLoadError, setProjectLoadError] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
-  const loadData = async (showLoading = true) => {
-    if (!supabase) {
-      return
-    }
-    if (showLoading) {
-      setIsLoading(true)
-    }
-    setError(null)
-    setStatus(null)
-    setOrgLoadError(null)
-    setProjectLoadError(null)
+  const loadData = async () => {
+    setIsLoading(true)
 
     const { data: userData, error: userError } = await supabase.auth.getUser()
     if (userError || !userData.user) {
-      setError("Sign in to manage organizations and projects.")
+      toast.error("Please sign in to manage organizations")
       setIsLoading(false)
       return
     }
     setCurrentUserId(userData.user.id)
 
     const [orgResult, projectResult, memberResult, componentResult, vulnerabilityResult] = await Promise.all([
-      supabase.from("organizations").select("id,name,owner_id,created_at,updated_at").order("created_at", { ascending: false }),
-      supabase.from("projects").select("id,name,organization_id,user_id,created_at,updated_at").order("created_at", { ascending: false }),
-      supabase.from("organization_members").select("id,organization_id,user_id,role,created_at"),
-      supabase.from("sbom_components").select("id,project_id,name,version,purl,license,author,added_at"),
-      supabase.from("vulnerabilities").select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at"),
+      supabase.from("organizations").select("*").order("created_at", { ascending: false }),
+      supabase.from("projects").select("*").order("created_at", { ascending: false }),
+      supabase.from("organization_members").select("*"),
+      supabase.from("sbom_components").select("*"),
+      supabase.from("vulnerabilities").select("*"),
     ])
-
-    if (orgResult.error) {
-      setOrgLoadError(`Unable to load organizations: ${orgResult.error.message}`)
-    }
-    if (projectResult.error) {
-      setProjectLoadError(`Unable to load projects: ${projectResult.error.message}`)
-    }
 
     if (!orgResult.error) {
       const orgs = orgResult.data ?? []
       setOrganizations(orgs)
-      const activeSelection = selectedOrgIdRef.current
-      if (orgs.length === 0) {
-        if (activeSelection) {
-          setSelectedOrgId("")
-        }
-      } else if (!activeSelection || !orgs.some((org) => org.id === activeSelection)) {
+      if (orgs.length > 0 && !selectedOrgId) {
         setSelectedOrgId(orgs[0].id)
       }
     }
 
-    if (!projectResult.error) {
-      setProjects(projectResult.data ?? [])
-    }
-
-    if (!memberResult.error) {
-      setMemberships(memberResult.data ?? [])
-    }
-
-    if (!componentResult.error) {
-      setComponents(componentResult.data ?? [])
-    }
-
-    if (!vulnerabilityResult.error) {
-      setVulnerabilities(vulnerabilityResult.data ?? [])
-    }
-
+    setProjects(projectResult.data ?? [])
+    setMemberships(memberResult.data ?? [])
+    setComponents(componentResult.data ?? [])
+    setVulnerabilities(vulnerabilityResult.data ?? [])
     setIsLoading(false)
   }
 
@@ -111,457 +67,318 @@ export function OrgProjectManager() {
     loadData()
   }, [])
 
-  useEffect(() => {
-    selectedOrgIdRef.current = selectedOrgId
-  }, [selectedOrgId])
-
-
-  useEffect(() => {
-    if (!supabase) {
-      return
-    }
-    const handleChange = () => {
-      loadData(false)
-    }
-
-    const channel = supabase
-      .channel("org-project-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "organizations" }, handleChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "organization_members" }, handleChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, handleChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "sbom_components" }, handleChange)
-      .on("postgres_changes", { event: "*", schema: "public", table: "vulnerabilities" }, handleChange)
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [supabase])
-
-  const componentsByProject = useMemo(() => {
-    const map = new Map<string, SbomComponentRow[]>()
-    for (const component of components) {
-      const bucket = map.get(component.project_id)
-      if (bucket) {
-        bucket.push(component)
-      } else {
-        map.set(component.project_id, [component])
-      }
-    }
-    return map
-  }, [components])
-
-  const projectVulnerabilityStats = useMemo(() => {
-    const componentToProject = new Map<string, string>()
-    for (const component of components) {
-      componentToProject.set(component.id, component.project_id)
-    }
-
-    const projectCounts = new Map<string, number>()
-    const projectAssignees = new Map<string, string>()
-
-    for (const vuln of vulnerabilities) {
-      const project = componentToProject.get(vuln.component_id)
-      if (!project) {
-        continue
-      }
-      projectCounts.set(project, (projectCounts.get(project) ?? 0) + 1)
-      if (!projectAssignees.get(project) && vuln.assigned_to) {
-        projectAssignees.set(project, vuln.assigned_to)
-      }
-    }
-
-    return { projectCounts, projectAssignees }
-  }, [components, vulnerabilities])
-
-  const memberActiveDeadlines = useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const vuln of vulnerabilities) {
-      if (!vuln.assigned_to) {
-        continue
-      }
-      if (vuln.status && vuln.status.toLowerCase() === "patched") {
-        continue
-      }
-      counts.set(vuln.assigned_to, (counts.get(vuln.assigned_to) ?? 0) + 1)
-    }
-    return counts
-  }, [vulnerabilities])
-
   const handleCreateOrg = async () => {
-    setError(null)
-    setStatus(null)
     if (!orgName.trim()) {
-      setError("Organization name is required.")
+      toast.error("Organization name is required")
       return
     }
 
-    if (!supabase) {
-      setError("Supabase client not ready.")
-      return
-    }
-
-    const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
-    if (!ownerId) {
-      setError("Sign in to create an organization.")
-      return
-    }
-
-    const { data: orgData, error: insertError } = await supabase
+    const { data, error } = await supabase
       .from("organizations")
       .insert({ name: orgName.trim() })
       .select("id")
       .single()
 
-    if (insertError || !orgData) {
-      setError(`Unable to create organization: ${insertError?.message ?? "Unknown error"}`)
+    if (error || !data) {
+      toast.error("Failed to create organization")
       return
     }
 
-    const { error: memberError } = await supabase
+    await supabase
       .from("organization_members")
-      .insert({ organization_id: orgData.id, user_id: ownerId, role: "owner" })
-
-    if (memberError) {
-      setError(`Organization created, but failed to add owner: ${memberError.message}`)
-      return
-    }
+      .insert({ organization_id: data.id, user_id: currentUserId, role: "owner" })
 
     setOrgName("")
-    setStatus("Organization created.")
+    toast.success("Organization created")
     loadData()
   }
 
-  const handleInviteMember = async () => {
-    setError(null)
-    setStatus(null)
-    if (!selectedOrgId) {
-      setError("Select an organization first.")
-      return
-    }
-
-    if (!memberUserId.trim()) {
-      setError("User ID is required.")
-      return
-    }
-
-    if (!supabase) {
-      setError("Supabase client not ready.")
-      return
-    }
-    const { error: insertError } = await supabase
-      .from("organization_members")
-      .insert({ organization_id: selectedOrgId, user_id: memberUserId.trim(), role: "member" })
-
-    if (insertError) {
-      setError(`Unable to add member: ${insertError.message}`)
-      return
-    }
-
-    setMemberUserId("")
-    setStatus("Member added.")
-    loadData(false)
-  }
-
   const handleCreateProject = async () => {
-    setError(null)
-    setStatus(null)
     if (!selectedOrgId) {
-      setError("Select an organization first.")
+      toast.error("Select an organization first")
       return
     }
-
     if (!projectName.trim()) {
-      setError("Project name is required.")
+      toast.error("Project name is required")
       return
     }
 
-    if (!supabase) {
-      setError("Supabase client not ready.")
-      return
-    }
-
-    const ownerId = currentUserId ?? (await supabase.auth.getUser()).data.user?.id
-    if (!ownerId) {
-      setError("Sign in to create a project.")
-      return
-    }
-    const { error: insertError } = await supabase
+    const { error } = await supabase
       .from("projects")
-      .insert({ name: projectName.trim(), organization_id: selectedOrgId, user_id: ownerId })
+      .insert({ name: projectName.trim(), organization_id: selectedOrgId, user_id: currentUserId })
 
-    if (insertError) {
-      setError(`Unable to create project: ${insertError.message}`)
+    if (error) {
+      toast.error("Failed to create project")
       return
     }
 
     setProjectName("")
-    setStatus("Project created.")
+    toast.success("Project created")
     loadData()
   }
 
-  const handleAssignMember = async (projectId: string, memberId: string) => {
-    setError(null)
-    setStatus(null)
-    if (!supabase) {
-      setError("Supabase client not ready.")
+  const handleInviteMember = async () => {
+    if (!selectedOrgId) {
+      toast.error("Select an organization first")
+      return
+    }
+    if (!memberUserId.trim()) {
+      toast.error("User ID is required")
       return
     }
 
-    const componentIds = (componentsByProject.get(projectId) ?? []).map((component) => component.id)
-    if (componentIds.length === 0) {
-      setError("Upload an SBOM to generate vulnerabilities before assigning owners.")
+    const { error } = await supabase
+      .from("organization_members")
+      .insert({ organization_id: selectedOrgId, user_id: memberUserId.trim(), role: "member" })
+
+    if (error) {
+      toast.error("Failed to add member")
       return
     }
 
-    const { error: updateError } = await supabase
-      .from("vulnerabilities")
-      .update({ assigned_to: memberId || null })
-      .in("component_id", componentIds)
-
-    if (updateError) {
-      setError(`Unable to assign member: ${updateError.message}`)
-      return
-    }
-
-    setVulnerabilities((prev) =>
-      prev.map((vuln) =>
-        componentIds.includes(vuln.component_id) ? { ...vuln, assigned_to: memberId || null } : vuln,
-      ),
-    )
-    setStatus("Assignment updated.")
+    setMemberUserId("")
+    toast.success("Member added")
+    loadData()
   }
 
-  const activeOrgMembers = memberships.filter((member) => member.organization_id === selectedOrgId)
-  const activeOrgProjects = projects.filter((project) => project.organization_id === selectedOrgId)
+  const activeOrgMembers = memberships.filter((m) => m.organization_id === selectedOrgId)
+  const activeOrgProjects = projects.filter((p) => p.organization_id === selectedOrgId)
+
+  const getProjectVulnCount = (projectId: string) => {
+    const componentIds = components.filter((c) => c.project_id === projectId).map((c) => c.id)
+    return vulnerabilities.filter((v) => componentIds.includes(v.component_id)).length
+  }
+
+  if (isLoading) {
+    return <p className="text-sm text-muted-foreground">Loading...</p>
+  }
 
   return (
-    <Card className="border-border/60 bg-card/70">
-      <CardHeader>
-        <CardTitle className="text-xl font-semibold">Organizations & Projects</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-8">
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading organization data…</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-6">
-              <div className="space-y-3">
-                <Label className="text-sm font-medium">Active Organization</Label>
-                <select
-                  value={selectedOrgId}
-                  onChange={(event) => setSelectedOrgId(event.target.value)}
-                  className="w-full appearance-none rounded-2xl border border-border/60 bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                  disabled={organizations.length === 0}
-                >
-                  {organizations.length === 0 && <option>No organizations found</option>}
-                  {organizations.map((org) => (
-                    <option key={org.id} value={org.id}>
-                      {org.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+    <Tabs defaultValue="organizations" className="w-full">
+      <TabsList className="grid w-full max-w-md grid-cols-3">
+        <TabsTrigger value="organizations">
+          <Building2 className="h-4 w-4 mr-2" />
+          Organizations
+        </TabsTrigger>
+        <TabsTrigger value="projects">
+          <FolderKanban className="h-4 w-4 mr-2" />
+          Projects
+        </TabsTrigger>
+        <TabsTrigger value="team">
+          <Users className="h-4 w-4 mr-2" />
+          Team
+        </TabsTrigger>
+      </TabsList>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="org-name" className="text-sm font-medium">
-                    New Organization
-                  </Label>
-                  <Input
-                    id="org-name"
-                    value={orgName}
-                    onChange={(event) => setOrgName(event.target.value)}
-                    placeholder="Acme Security"
-                  />
-                  <Button onClick={handleCreateOrg} className="w-full bg-primary text-primary-foreground">
-                    Create Organization
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="project-name" className="text-sm font-medium">
-                    New Project
-                  </Label>
-                  <Input
-                    id="project-name"
-                    value={projectName}
-                    onChange={(event) => setProjectName(event.target.value)}
-                    placeholder="CRA Compliance Portal"
-                  />
-                  <Button onClick={handleCreateProject} className="w-full" variant="outline">
-                    Create Project
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="member-id" className="text-sm font-medium">
-                    Invite User (by ID)
-                  </Label>
-                  <Input
-                    id="member-id"
-                    value={memberUserId}
-                    onChange={(event) => setMemberUserId(event.target.value)}
-                    placeholder="User UUID"
-                  />
-                  <Button onClick={handleInviteMember} className="w-full" variant="outline">
-                    Add Member
-                  </Button>
-                </div>
-              </div>
+      {/* Organizations Tab */}
+      <TabsContent value="organizations" className="space-y-6 mt-6">
+        <Card className="border-border/60 bg-card/70">
+          <CardHeader>
+            <CardTitle>Create Organization</CardTitle>
+            <CardDescription>Organizations group projects and team members</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="org-name">Organization Name</Label>
+              <Input
+                id="org-name"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                placeholder="Acme Corp"
+              />
             </div>
+            <Button onClick={handleCreateOrg} className="bg-primary text-primary-foreground">
+              Create Organization
+            </Button>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-lg font-semibold text-foreground">Projects</p>
-                  <p className="text-xs text-muted-foreground">Assign owners, monitor compliance, and open triage.</p>
-                </div>
-                {projectId ? (
-                  <span className="text-xs text-muted-foreground">Active project ID: {projectId.slice(0, 8)}…</span>
-                ) : null}
+        <Card className="border-border/60 bg-card/70">
+          <CardHeader>
+            <CardTitle>Your Organizations</CardTitle>
+            <CardDescription>{organizations.length} total</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {organizations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No organizations yet</p>
+            ) : (
+              <div className="space-y-2">
+                {organizations.map((org) => (
+                  <div
+                    key={org.id}
+                    className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
+                  >
+                    <div>
+                      <p className="font-medium">{org.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Created {new Date(org.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant={selectedOrgId === org.id ? "default" : "outline"}
+                      onClick={() => setSelectedOrgId(org.id)}
+                    >
+                      {selectedOrgId === org.id ? "Selected" : "Select"}
+                    </Button>
+                  </div>
+                ))}
               </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
 
-              {activeOrgProjects.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No projects yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {activeOrgProjects.map((project) => {
-                    const vulnCount = projectVulnerabilityStats.projectCounts.get(project.id) ?? 0
-                    const score = Math.max(25, Math.min(100, 100 - vulnCount * 7))
-                    const assignee = projectVulnerabilityStats.projectAssignees.get(project.id) ?? ""
-                    const members = memberships.filter((member) => member.organization_id === project.organization_id)
-
-                    return (
-                      <div key={project.id} className={cn(cardClass, "p-6 space-y-4")}> 
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="text-lg font-semibold text-foreground">{project.name}</p>
-                            <p className="text-xs text-muted-foreground">{project.id.slice(0, 8)}…</p>
-                          </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <ComplianceRing score={score} />
-                            <span className="text-[10px] uppercase tracking-[0.2em] text-amber-600">Compliance</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <p className="text-xs text-muted-foreground">Assigned members</p>
-                          <div className="flex items-center">
-                            {members.slice(0, 5).map((member, index) => (
-                              <div
-                                key={member.id}
-                                className={cn(
-                                  "h-8 w-8 rounded-full border border-white bg-neutral-900 text-white text-[10px] font-semibold flex items-center justify-center",
-                                  index > 0 && "-ml-2",
-                                )}
-                                title={member.user_id}
-                              >
-                                {member.user_id.slice(0, 2).toUpperCase()}
-                              </div>
-                            ))}
-                            {members.length === 0 && (
-                              <span className="text-xs text-muted-foreground">Invite members to collaborate.</span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">Assign Member</Label>
-                          <select
-                            value={assignee}
-                            onChange={(event) => handleAssignMember(project.id, event.target.value)}
-                            className="w-full rounded-2xl border border-neutral-200 bg-white px-3 py-2 text-sm text-foreground"
-                          >
-                            <option value="">Unassigned</option>
-                            {members.map((member) => (
-                              <option key={member.id} value={member.user_id}>
-                                {member.user_id.slice(0, 8)}… ({member.role})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProjectId(project.id)
-                              if (selectedOrgId) {
-                                router.push(`/${selectedOrgId}/${project.id}/dashboard`)
-                              }
-                            }}
-                            className={cn(
-                              "text-xs font-semibold uppercase tracking-[0.2em]",
-                              projectId === project.id ? "text-amber-600" : "text-muted-foreground",
-                            )}
-                          >
-                            {projectId === project.id ? "Active Project" : "Set Active"}
-                          </button>
-                          <span className="text-xs text-muted-foreground">{vulnCount} vulnerabilities</span>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+      {/* Projects Tab */}
+      <TabsContent value="projects" className="space-y-6 mt-6">
+        <Card className="border-border/60 bg-card/70">
+          <CardHeader>
+            <CardTitle>Create Project</CardTitle>
+            <CardDescription>
+              {selectedOrgId
+                ? `Creating in ${organizations.find((o) => o.id === selectedOrgId)?.name}`
+                : "Select an organization first"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="org-select">Organization</Label>
+              <select
+                id="org-select"
+                value={selectedOrgId}
+                onChange={(e) => setSelectedOrgId(e.target.value)}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select organization...</option>
+                {organizations.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Project Name</Label>
+              <Input
+                id="project-name"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="CRA Compliance Portal"
+              />
+            </div>
+            <Button onClick={handleCreateProject} disabled={!selectedOrgId}>
+              Create Project
+            </Button>
+          </CardContent>
+        </Card>
 
-            <div className="space-y-4">
-              <div>
-                <p className="text-lg font-semibold text-foreground">Team Members</p>
-                <p className="text-xs text-muted-foreground">Ownership and active deadlines by person.</p>
-              </div>
-
-              {activeOrgMembers.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Invite members to see ownership coverage.</p>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {activeOrgMembers.map((member) => (
-                    <div key={member.id} className={cn(cardClass, "p-6 space-y-3")}> 
+        <Card className="border-border/60 bg-card/70">
+          <CardHeader>
+            <CardTitle>Projects</CardTitle>
+            <CardDescription>
+              {selectedOrgId
+                ? `${activeOrgProjects.length} in ${organizations.find((o) => o.id === selectedOrgId)?.name}`
+                : "Select an organization to view projects"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activeOrgProjects.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No projects yet</p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeOrgProjects.map((project) => {
+                  const vulnCount = getProjectVulnCount(project.id)
+                  return (
+                    <div
+                      key={project.id}
+                      className="p-4 border border-border rounded-lg space-y-3 hover:bg-muted/30 transition-colors"
+                    >
                       <div>
-                        <p className="text-base font-semibold text-foreground">{member.user_id.slice(0, 10)}…</p>
-                        <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                        <p className="font-medium">{project.name}</p>
+                        <p className="text-xs text-muted-foreground">{project.id.slice(0, 8)}...</p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Active Deadlines</span>
-                        <span className="text-sm font-semibold text-foreground">
-                          {memberActiveDeadlines.get(member.user_id) ?? 0}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground">Projects touched</span>
-                        <span className="text-sm text-foreground">
-                          {projects.filter((project) => project.organization_id === member.organization_id).length}
-                        </span>
+                        <span className="text-sm text-muted-foreground">{vulnCount} vulnerabilities</span>
+                        <Button
+                          size="sm"
+                          variant={projectId === project.id ? "default" : "outline"}
+                          onClick={() => {
+                            setProjectId(project.id)
+                            router.push("/")
+                          }}
+                        >
+                          {projectId === project.id ? "Active" : "Set Active"}
+                        </Button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                  )
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+
+      {/* Team Tab */}
+      <TabsContent value="team" className="space-y-6 mt-6">
+        <Card className="border-border/60 bg-card/70">
+          <CardHeader>
+            <CardTitle>Invite Team Member</CardTitle>
+            <CardDescription>
+              {selectedOrgId
+                ? `Invite to ${organizations.find((o) => o.id === selectedOrgId)?.name}`
+                : "Select an organization first"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="member-id">User ID</Label>
+              <Input
+                id="member-id"
+                value={memberUserId}
+                onChange={(e) => setMemberUserId(e.target.value)}
+                placeholder="User UUID"
+              />
             </div>
-          </>
-        )}
+            <Button onClick={handleInviteMember} disabled={!selectedOrgId}>
+              Add Member
+            </Button>
+          </CardContent>
+        </Card>
 
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        {orgLoadError && <p className="text-sm text-destructive">{orgLoadError}</p>}
-        {projectLoadError && <p className="text-sm text-destructive">{projectLoadError}</p>}
-        {status && <p className="text-sm text-muted-foreground">{status}</p>}
-      </CardContent>
-    </Card>
-  )
-}
-
-function ComplianceRing({ score }: { score: number }) {
-  const ringStyle = {
-    background: `conic-gradient(#f59e0b ${score * 3.6}deg, rgba(245, 158, 11, 0.15) 0deg)`,
-  }
-
-  return (
-    <div className="h-16 w-16 rounded-full p-[3px]" style={ringStyle}>
-      <div className="h-full w-full rounded-full bg-white flex items-center justify-center">
-        <span className="text-sm font-semibold text-amber-600">{score}%</span>
-      </div>
-    </div>
+        <Card className="border-border/60 bg-card/70">
+          <CardHeader>
+            <CardTitle>Team Members</CardTitle>
+            <CardDescription>
+              {selectedOrgId
+                ? `${activeOrgMembers.length} in ${organizations.find((o) => o.id === selectedOrgId)?.name}`
+                : "Select an organization to view members"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {activeOrgMembers.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No members yet</p>
+            ) : (
+              <div className="space-y-2">
+                {activeOrgMembers.map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-3 border border-border rounded-lg"
+                  >
+                    <div>
+                      <p className="text-sm font-medium">{member.user_id.slice(0, 16)}...</p>
+                      <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                    </div>
+                    {member.user_id === currentUserId && (
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">You</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </TabsContent>
+    </Tabs>
   )
 }
