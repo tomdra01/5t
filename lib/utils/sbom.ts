@@ -48,6 +48,30 @@ function extractCycloneDxLicense(component: UnknownRecord): string | undefined {
   )
 }
 
+// Helper for server-side actions
+export function extractLicense(component: any): string | null {
+  if (!component) return null
+
+  // Handle CycloneDX format
+  if (component.licenses && Array.isArray(component.licenses)) {
+    const license = component.licenses[0]?.license
+    return license?.name || license?.id || null
+  }
+
+  // Handle SPDX format
+  if (component.licenseConcluded) return component.licenseConcluded
+  if (component.licenseDeclared) return component.licenseDeclared
+
+  // Handle simple license object
+  if (component.license) {
+    if (typeof component.license === "string") return component.license
+    if (component.license.id) return component.license.id
+    if (component.license.name) return component.license.name
+  }
+
+  return null
+}
+
 function parseCycloneDX(data: UnknownRecord): ParsedSBOM {
   const vulnerabilityCounts = new Map<string, number>()
   const vulnerabilities = asArray<UnknownRecord>(data.vulnerabilities)
@@ -105,7 +129,7 @@ function parseSpdx(data: UnknownRecord): ParsedSBOM {
       id,
       name: asString(pkg.name) || "Unknown",
       version: asString(pkg.versionInfo) || "Unknown",
-      type: "library",
+      type: "library" as const,
       license: asString(pkg.licenseConcluded) || asString(pkg.licenseDeclared),
       vulnerabilities: 0,
       lastUpdated: createdAt,
@@ -126,6 +150,35 @@ function parseSpdx(data: UnknownRecord): ParsedSBOM {
   return { components, raw: { components: normalizedComponents } }
 }
 
+// Server-side SBOM parsing from string content
+export function parseSbom(content: string): any[] {
+  const data = JSON.parse(content) as UnknownRecord
+
+  let parsed: ParsedSBOM
+
+  if (typeof data.bomFormat === "string" && data.bomFormat.toLowerCase() === "cyclonedx") {
+    parsed = parseCycloneDX(data)
+  } else if (typeof data.spdxVersion === "string") {
+    parsed = parseSpdx(data)
+  } else {
+    const components = asArray<UnknownRecord>(data.components)
+    if (components.length > 0) {
+      parsed = parseCycloneDX(data)
+    } else {
+      const spdxPackages = asArray<UnknownRecord>(data.packages)
+      if (spdxPackages.length > 0) {
+        parsed = parseSpdx(data)
+      } else {
+        throw new Error("Unsupported SBOM format. Please upload a CycloneDX or SPDX JSON file.")
+      }
+    }
+  }
+
+  // Return raw components for server actions
+  return asArray(parsed.raw.components || data.components || data.packages)
+}
+
+// Client-side file parsing
 export async function parseSbomFile(file: File): Promise<ParsedSBOM> {
   const contents = await file.text()
   const data = JSON.parse(contents) as UnknownRecord

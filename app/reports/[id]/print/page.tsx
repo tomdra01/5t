@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
 import type { ProjectRow, VulnerabilityRow, SbomComponentRow } from "@/types/db"
-import { ArrowLeft, FileDown } from "lucide-react"
+import { ArrowLeft, FileDown, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function ReportPrintPage() {
@@ -87,14 +87,26 @@ export default function ReportPrintPage() {
     const overdueCount = vulnerabilities.filter(
         (v) => new Date(v.reporting_deadline) < new Date()
     ).length
+    const patchedCount = vulnerabilities.filter((v) => v.status === "Patched").length
+    const openCount = vulnerabilities.filter((v) => v.status !== "Patched").length
+
+    // Compliance calculations
+    const article14Pass = overdueCount === 0 // No overdue vulnerabilities
+    const article15Pass = vulnerabilities.every((v) => v.assigned_to !== null) // All assigned
+
+    // Remediation roadmap data
+    const openVulnerabilities = vulnerabilities.filter((v) => v.status !== "Patched")
+    const sortedByDeadline = [...openVulnerabilities].sort(
+        (a, b) => new Date(a.reporting_deadline).getTime() - new Date(b.reporting_deadline).getTime()
+    )
 
     return (
         <div>
             {/* Print/Download Controls - Hidden on print */}
             <div className="no-print fixed top-4 right-4 flex gap-2 z-50 print:hidden">
-                <Button variant="outline" onClick={() => router.back()}>
+                <Button variant="outline" onClick={() => window.close()}>
                     <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
+                    Close
                 </Button>
                 <Button onClick={handlePrint} className="bg-primary text-primary-foreground hover:bg-primary/90">
                     <FileDown className="w-4 h-4 mr-2" />
@@ -140,29 +152,151 @@ export default function ReportPrintPage() {
                     </div>
                 </div>
 
+                {/* Compliance Scorecard */}
+                <section className="mb-10 p-6 bg-gray-50 border-2 border-gray-900 rounded-lg">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Compliance Scorecard</h2>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded">
+                            <div>
+                                <p className="font-semibold text-gray-900">Article 14 Compliance</p>
+                                <p className="text-sm text-gray-600">24-hour vulnerability reporting</p>
+                            </div>
+                            {article14Pass ? (
+                                <CheckCircle className="w-10 h-10 text-green-600" />
+                            ) : (
+                                <XCircle className="w-10 h-10 text-red-600" />
+                            )}
+                        </div>
+                        <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded">
+                            <div>
+                                <p className="font-semibold text-gray-900">Article 15 Compliance</p>
+                                <p className="text-sm text-gray-600">Coordinated disclosure practices</p>
+                            </div>
+                            {article15Pass ? (
+                                <CheckCircle className="w-10 h-10 text-green-600" />
+                            ) : (
+                                <XCircle className="w-10 h-10 text-red-600" />
+                            )}
+                        </div>
+                    </div>
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <p className="text-sm font-medium text-blue-900">
+                            {article14Pass && article15Pass ? (
+                                <>✓ Full Compliance - All requirements met</>
+                            ) : (
+                                <>⚠ Action Required - Review non-compliant items below</>
+                            )}
+                        </p>
+                    </div>
+                </section>
+
                 {/* Executive Summary */}
                 <section className="mb-10">
                     <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
                         Executive Summary
                     </h2>
-                    <div className="grid grid-cols-3 gap-6">
-                        <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="text-4xl font-bold text-gray-900 mb-1">{components.length}</p>
-                            <p className="text-sm text-gray-600 font-medium">Total Components</p>
-                        </div>
-                        <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="text-4xl font-bold text-gray-900 mb-1">{vulnerabilities.length}</p>
-                            <p className="text-sm text-gray-600 font-medium">Vulnerabilities</p>
-                        </div>
-                        <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
-                            <p className="text-4xl font-bold text-red-600 mb-1">{overdueCount}</p>
-                            <p className="text-sm text-gray-600 font-medium">Overdue (24h)</p>
-                        </div>
+                    <div className="space-y-4 text-gray-700 leading-relaxed">
+                        <p>
+                            This compliance report demonstrates {project.name}'s adherence to the EU Cyber Resilience Act (CRA)
+                            essential cybersecurity requirements. Our continuous vulnerability management process ensures
+                            that all discovered security issues are tracked, assigned, and remediated within regulatory deadlines.
+                        </p>
+                        <p>
+                            <strong className="text-gray-900">Technical Risk Profile:</strong> The project maintains {components.length} active
+                            software components with {vulnerabilities.length} total vulnerabilities identified. Of these, {patchedCount} have
+                            been remediated and {openCount} remain under active management with assigned ownership and target resolution dates.
+                        </p>
+                        <p>
+                            <strong className="text-gray-900">Legal Compliance Status:</strong> {article14Pass && article15Pass ? (
+                                <>Our processes fully comply with CRA Articles 14 and 15, demonstrating due diligence in vulnerability
+                                    discovery, reporting, and remediation.</>
+                            ) : (
+                                <>We are addressing {!article14Pass ? "overdue reporting deadlines" : ""} {!article14Pass && !article15Pass ? "and" : ""}
+                                    {!article15Pass ? "ownership assignment gaps" : ""} to achieve full compliance.</>
+                            )}
+                        </p>
                     </div>
                 </section>
 
-                {/* Vulnerability Breakdown */}
+                {/* Executive Summary Stats */}
+                <div className="mb-10 grid grid-cols-3 gap-6">
+                    <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-4xl font-bold text-gray-900 mb-1">{components.length}</p>
+                        <p className="text-sm text-gray-600 font-medium">Total Components</p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-4xl font-bold text-gray-900 mb-1">{vulnerabilities.length}</p>
+                        <p className="text-sm text-gray-600 font-medium">Vulnerabilities</p>
+                    </div>
+                    <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-4xl font-bold text-red-600 mb-1">{overdueCount}</p>
+                        <p className="text-sm text-gray-600 font-medium">Overdue (24h)</p>
+                    </div>
+                </div>
+
+                {/* Remediation Roadmap */}
                 <section className="mb-10">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
+                        Remediation Roadmap
+                    </h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Due diligence demonstration: Target resolution dates for all open vulnerabilities
+                    </p>
+                    {sortedByDeadline.length === 0 ? (
+                        <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
+                            <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                            <p className="font-semibold text-green-900">All vulnerabilities resolved</p>
+                            <p className="text-sm text-green-700">No open security issues</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            {sortedByDeadline.slice(0, 10).map((vuln, index) => {
+                                const deadline = new Date(vuln.reporting_deadline)
+                                const daysUntil = Math.ceil((deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                                const isOverdue = daysUntil < 0
+                                const isUrgent = daysUntil <= 1
+
+                                return (
+                                    <div key={vuln.id} className={`flex items-center justify-between p-3 border rounded ${isOverdue ? "bg-red-50 border-red-200" :
+                                            isUrgent ? "bg-orange-50 border-orange-200" :
+                                                "bg-gray-50 border-gray-200"
+                                        }`}>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-mono text-gray-700">{index + 1}.</span>
+                                            <div>
+                                                <p className="font-semibold text-gray-900 text-sm">{vuln.cve_id}</p>
+                                                <p className="text-xs text-gray-600">
+                                                    {vuln.severity} severity • Assigned to: {vuln.assigned_to?.slice(0, 8) || "Unassigned"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className={`text-sm font-semibold ${isOverdue ? "text-red-700" :
+                                                    isUrgent ? "text-orange-700" :
+                                                        "text-gray-900"
+                                                }`}>
+                                                {deadline.toLocaleDateString()}
+                                            </p>
+                                            <p className="text-xs text-gray-600">
+                                                {isOverdue ? `${Math.abs(daysUntil)}d overdue` :
+                                                    isUrgent ? `${daysUntil}d remaining` :
+                                                        `${daysUntil}d remaining`}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                            {sortedByDeadline.length > 10 && (
+                                <p className="text-sm text-gray-600 text-center pt-2">
+                                    Showing 10 of {sortedByDeadline.length} open vulnerabilities
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </section>
+
+                {/* Vulnerability Breakdown */}
+                <section className="mb-10 page-break">
                     <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
                         Vulnerability Analysis
                     </h2>
@@ -216,7 +350,7 @@ export default function ReportPrintPage() {
                 </section>
 
                 {/* Detailed Vulnerability List */}
-                <section className="mb-10 page-break">
+                <section className="mb-10">
                     <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
                         Detailed Vulnerability Inventory
                     </h2>
@@ -279,6 +413,48 @@ export default function ReportPrintPage() {
                     </div>
                 </section>
 
+                {/* Sign-Off Block */}
+                <section className="mb-10 p-6 border-2 border-gray-900 rounded-lg">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Security Officer Sign-Off</h2>
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">
+                                    Officer Name
+                                </label>
+                                <div className="border-b-2 border-gray-300 pb-2 h-10"></div>
+                            </div>
+                            <div>
+                                <label className="block text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">
+                                    Title/Role
+                                </label>
+                                <div className="border-b-2 border-gray-300 pb-2 h-10"></div>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">
+                                    Signature
+                                </label>
+                                <div className="border-b-2 border-gray-300 pb-2 h-16"></div>
+                            </div>
+                            <div>
+                                <label className="block text-xs uppercase tracking-wider text-gray-500 font-semibold mb-2">
+                                    Date
+                                </label>
+                                <div className="border-b-2 border-gray-300 pb-2 h-10"></div>
+                            </div>
+                        </div>
+                        <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded">
+                            <p className="text-xs text-gray-600">
+                                <strong>Declaration:</strong> I certify that this compliance report accurately reflects the current
+                                state of vulnerability management for {project.name} and that all information provided is complete
+                                and accurate to the best of my knowledge.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
                 {/* Footer */}
                 <div className="mt-12 pt-6 border-t-2 border-gray-900 text-center text-sm text-gray-600">
                     <p className="font-medium">Generated by 5teen.app CRA Compliance Platform</p>
@@ -290,7 +466,6 @@ export default function ReportPrintPage() {
 
             <style jsx global>{`
         @media print {
-          /* Hide sidebar, navigation, and controls */
           .no-print,
           aside,
           header,
@@ -299,7 +474,6 @@ export default function ReportPrintPage() {
             display: none !important;
           }
 
-          /* Remove app padding */
           main {
             padding: 0 !important;
           }
@@ -324,7 +498,6 @@ export default function ReportPrintPage() {
           }
         }
 
-        /* Ensure colors print correctly */
         * {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;

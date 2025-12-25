@@ -5,39 +5,71 @@ import { usePathname } from "next/navigation"
 
 interface ProjectContextValue {
   projectId: string
+  organizationId: string
   setProjectId: (projectId: string) => void
+  setOrganizationId: (organizationId: string) => void
 }
 
 const ProjectContext = createContext<ProjectContextValue | null>(null)
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
   const [projectId, setProjectIdState] = useState("")
+  const [organizationId, setOrganizationIdState] = useState("")
   const pathname = usePathname()
 
   useEffect(() => {
-    const stored = window.localStorage.getItem("selectedProjectId") || ""
-    if (stored) {
-      setProjectIdState(stored)
+    const storedProject = window.localStorage.getItem("selectedProjectId") || ""
+    const storedOrg = window.localStorage.getItem("selectedOrganizationId") || ""
+    if (storedProject) {
+      setProjectIdState(storedProject)
+    }
+    if (storedOrg) {
+      setOrganizationIdState(storedOrg)
     }
   }, [])
 
   useEffect(() => {
-    const match = pathname.match(/^\/([^/]+)\/([^/]+)\/dashboard$/)
-    if (match?.[2]) {
-      setProjectIdState(match[2])
-      window.localStorage.setItem("selectedProjectId", match[2])
+    // Match any route starting with /orgId/projectId/...
+    // Excluding special Next.js routes or assets if necessary, but broadly standard for this app
+    const match = pathname.match(/^\/([^/]+)\/([^/]+)/)
+
+    if (match) {
+      // Ensure we don't pick up "api" or other system routes if they match this pattern 
+      // (assuming UUIDs or specific slugs, but generic is fine for now if strict routes used)
+      const potentialOrg = match[1]
+      const potentialProj = match[2]
+
+      // Simple check to avoid capturing non-ID paths if your generic routes collide
+      // For now, trust the routing structure
+
+      if (potentialProj && potentialProj !== "dashboard") {
+        // Actually the previous regex was specific to dashboard. 
+        // If your routes are /org/project/triage, this works.
+        setProjectIdState(potentialProj)
+        window.localStorage.setItem("selectedProjectId", potentialProj)
+      }
+
+      if (potentialOrg) {
+        setOrganizationIdState(potentialOrg)
+        window.localStorage.setItem("selectedOrganizationId", potentialOrg)
+      }
     }
   }, [pathname])
 
   const value = useMemo<ProjectContextValue>(() => {
     return {
       projectId,
+      organizationId,
       setProjectId: (nextId: string) => {
         setProjectIdState(nextId)
         window.localStorage.setItem("selectedProjectId", nextId)
       },
+      setOrganizationId: (nextId: string) => {
+        setOrganizationIdState(nextId)
+        window.localStorage.setItem("selectedOrganizationId", nextId)
+      },
     }
-  }, [projectId])
+  }, [projectId, organizationId])
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>
 }

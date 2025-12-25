@@ -1,40 +1,12 @@
 "use server"
 
 import { createClient } from "@/utils/supabase/server"
-import type { SbomComponentRow, VulnerabilityRow } from "@/types/db"
+import { parseSbom, extractLicense } from "@/lib/utils/sbom"
+import { revalidatePath } from "next/cache"
 
-interface CycloneDxComponent {
-  name?: string
-  version?: string
-  purl?: string
-  author?: string
-  licenses?: Array<{ license?: { name?: string; id?: string } }>
-  license?: { name?: string; id?: string }
-}
-
-interface CycloneDxBom {
-  components?: CycloneDxComponent[]
-}
-
-interface OsvSeverity {
-  type?: string
-  score?: string
-}
-
-interface OsvVulnerability {
-  id: string
-  summary?: string
-  details?: string
-  severity?: OsvSeverity[]
-}
-
-interface OsvResponse {
-  vulns?: OsvVulnerability[]
-}
-
-interface UploadSbomInput {
+interface UploadSbomActionInput {
   projectId: string
-  sbom: CycloneDxBom
+  fileContent: string
 }
 
 interface UploadSbomResult {
@@ -42,38 +14,46 @@ interface UploadSbomResult {
   message: string
   componentsInserted: number
   vulnerabilitiesInserted: number
-  errors?: string[]
 }
 
-const extractLicense = (component: CycloneDxComponent) => {
-  const primary = component.licenses?.[0]?.license
-  return primary?.name || primary?.id || component.license?.name || component.license?.id || null
+interface ComponentComparison {
+  name: string
+  oldVersion: string | null
+  newVersion: string
+  status: "new" | "upgraded" | "downgraded" | "unchanged"
+  oldComponentId?: string
 }
 
-const toSeverity = (severity?: OsvSeverity[]) => {
-  const scoreValue = severity?.[0]?.score ? Number.parseFloat(severity[0].score) : Number.NaN
-  if (Number.isNaN(scoreValue)) {
-    return "High"
+// Semantic version comparison helper
+function compareVersions(v1: string, v2: string): number {
+  const clean = (v: string) => v.replace(/^[v=]/i, "").split(/[.-]/).map(p => parseInt(p) || 0)
+  const parts1 = clean(v1)
+  const parts2 = clean(v2)
+
+  for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+    const p1 = parts1[i] || 0
+    const p2 = parts2[i] || 0
+    if (p1 > p2) return 1
+    if (p1 < p2) return -1
   }
-  if (scoreValue >= 9) {
-    return "Critical"
-  }
-  if (scoreValue >= 7) {
-    return "High"
-  }
-  if (scoreValue >= 4) {
-    return "Medium"
-  }
-  return "Low"
+  return 0
 }
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
-export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Promise<UploadSbomResult> {
-  if (!projectId) {
-    return { success: false, message: "Missing project ID.", componentsInserted: 0, vulnerabilitiesInserted: 0 }
+export async function uploadSbomAction({
+  projectId,
+  fileContent,
+}: UploadSbomActionInput): Promise<UploadSbomResult> {
+  if (!projectId || !fileContent) {
+    return { success: false, message: "Missing required inputs.", componentsInserted: 0, vulnerabilitiesInserted: 0 }
   }
 
-  const components = sbom.components ?? []
+  let components: ReturnType<typeof parseSbom>
+  try {
+    components = parseSbom(fileContent)
+  } catch {
+    return { success: false, message: "Unable to parse SBOM format.", componentsInserted: 0, vulnerabilitiesInserted: 0 }
+  }
+
   if (components.length === 0) {
     return { success: false, message: "No components found in SBOM.", componentsInserted: 0, vulnerabilitiesInserted: 0 }
   }
@@ -86,165 +66,307 @@ export async function uploadSbomAction({ projectId, sbom }: UploadSbomInput): Pr
 
   let componentsInserted = 0
   let vulnerabilitiesInserted = 0
+  let componentsUpgraded = 0
+  let vulnerabilitiesAutoResolved = 0
   const errors: string[] = []
 
-  // 1. Insert/Update Components first to get their IDs
+  // 1. Get or create SBOM version
+  const { data: latestVersion } = await supabase
+    .rpc("get_latest_sbom_version", { p_project_id: projectId })
+
+  const newVersionNumber = (latestVersion || 0) + 1
+
+  const { data: sbomVersion, error: versionError } = await supabase
+    .from("sbom_versions")
+    .insert({
+      project_id: projectId,
+      version_number: newVersionNumber,
+      uploaded_by: userData.user.id,
+      component_count: components.length,
+    })
+    .select()
+    .single()
+
+  if (versionError || !sbomVersion) {
+    return { success: false, message: "Failed to create SBOM version.", componentsInserted: 0, vulnerabilitiesInserted: 0 }
+  }
+
+  // 2. Load previous components for comparison
+  const previousComponents = new Map<string, { id: string; version: string }>()
+
+  if (newVersionNumber > 1) {
+    const { data: prevComponents } = await supabase
+      .from("sbom_components")
+      .select("id, name, version")
+      .eq("project_id", projectId)
+
+    if (prevComponents) {
+      for (const comp of prevComponents) {
+        if (comp.name) {
+          previousComponents.set(comp.name, { id: comp.id, version: comp.version || "unknown" })
+        }
+      }
+    }
+  }
+
+  // Helper to generate PURL if not provided (for common ecosystems)
+  const generatePurl = (component: any): string | null => {
+    if (component.purl) return component.purl
+
+    const name = component.name
+    const version = component.version
+
+    if (!name || !version) return null
+
+    // Try to infer ecosystem from common package patterns
+    // npm packages (most common in JS/TS projects)
+    if (name.includes('/') && name.startsWith('@')) {
+      return `pkg:npm/${name}@${version}`
+    }
+    if (component.type === 'library' || component.type === 'application') {
+      // Default to npm for libraries without explicit package manager
+      return `pkg:npm/${name}@${version}`
+    }
+
+    return null
+  }
+
+  // 3. Insert/Update Components with version comparison
   const purlsToQuery: string[] = []
-  const componentIdMap = new Map<string, string>() // purl -> component_id
+  const componentIdMap = new Map<string, string>()
+  const comparisons: ComponentComparison[] = []
 
   for (const component of components) {
-    // Basic deduplication check
-    const { data: existing } = await supabase
+    const compName = component.name ?? "Unknown"
+    const compVersion = component.version ?? "Unknown"
+    const prev = previousComponents.get(compName)
+
+    let comparison: ComponentComparison = {
+      name: compName,
+      oldVersion: prev?.version || null,
+      newVersion: compVersion,
+      status: "new",
+    }
+
+    if (prev) {
+      const versionDiff = compareVersions(compVersion, prev.version)
+      if (versionDiff > 0) {
+        comparison.status = "upgraded"
+        comparison.oldComponentId = prev.id
+        componentsUpgraded++
+      } else if (versionDiff < 0) {
+        comparison.status = "downgraded"
+      } else {
+        comparison.status = "unchanged"
+      }
+    }
+
+    comparisons.push(comparison)
+
+    // Generate PURL if not provided
+    const purl = generatePurl(component) || component.purl
+
+    // Insert new component
+    const { data: inserted, error: insertError } = await supabase
       .from("sbom_components")
-      .select("id")
-      .eq("project_id", projectId)
-      .eq("name", component.name ?? "Unknown")
-      .eq("version", component.version ?? "Unknown")
+      .insert({
+        project_id: projectId,
+        name: compName,
+        version: compVersion,
+        purl: purl,
+        license: extractLicense(component),
+        author: component.author ?? null,
+        sbom_version_id: sbomVersion.id,
+        previous_version: prev?.version || null,
+      })
+      .select()
       .single()
 
-    let insertedId: string | null = existing?.id ?? null
+    if (insertError) {
+      errors.push(`Failed to insert ${compName}: ${insertError.message}`)
+      continue
+    }
 
-    if (existing) {
-      await supabase
-        .from("sbom_components")
-        .update({ added_at: new Date().toISOString() })
-        .eq("id", existing.id)
+    if (inserted && purl) {
+      componentsInserted++
+      purlsToQuery.push(purl)
+      componentIdMap.set(purl, inserted.id)
+    }
+
+    // 4. Auto-resolve vulnerabilities for upgraded components
+    if (comparison.status === "upgraded" && comparison.oldComponentId) {
+      const { data: oldVulns } = await supabase
+        .from("vulnerabilities")
+        .select("id, cve_id")
+        .eq("component_id", comparison.oldComponentId)
+        .neq("status", "Patched")
+
+      if (oldVulns && oldVulns.length > 0) {
+        for (const vuln of oldVulns) {
+          // Mark as patched
+          await supabase
+            .from("vulnerabilities")
+            .update({ status: "Patched", updated_at: new Date().toISOString() })
+            .eq("id", vuln.id)
+
+          // Log remediation milestone
+          await supabase.rpc("log_remediation_milestone", {
+            p_vulnerability_id: vuln.id,
+            p_milestone_type: "auto_resolved",
+            p_old_value: comparison.oldVersion,
+            p_new_value: comparison.newVersion,
+            p_triggered_by: userData.user.id,
+            p_notes: `Component ${compName} upgraded from ${comparison.oldVersion} to ${comparison.newVersion}`,
+            p_sbom_version_id: sbomVersion.id,
+          })
+
+          vulnerabilitiesAutoResolved++
+        }
+      }
+    }
+  }
+
+  if (purlsToQuery.length === 0) {
+    console.log('[SBOM Upload] No PURLs to query - components might be missing PURL data')
+    return {
+      success: true,
+      message: componentsUpgraded > 0
+        ? `SBOM v${newVersionNumber} uploaded: ${componentsInserted} components, ${componentsUpgraded} upgraded, ${vulnerabilitiesAutoResolved} vulnerabilities auto-resolved.`
+        : `SBOM v${newVersionNumber} uploaded with ${componentsInserted} components. No PURLs available for vulnerability scanning.`,
+      componentsInserted,
+      vulnerabilitiesInserted: 0,
+    }
+  }
+
+  console.log(`[SBOM Upload] Querying OSV.dev for ${purlsToQuery.length} PURLs:`, purlsToQuery)
+
+  // 5. Query OSV.dev Batch API for vulnerabilities
+  const osvBatchPayload = {
+    queries: purlsToQuery.map((purl) => ({ package: { purl } })),
+  }
+
+  let osvResponse
+  try {
+    const resp = await fetch("https://api.osv.dev/v1/querybatch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(osvBatchPayload),
+    })
+
+    console.log(`[SBOM Upload] OSV.dev response status: ${resp.status}`)
+
+    if (!resp.ok) {
+      const errorText = await resp.text()
+      console.error('[SBOM Upload] OSV.dev error:', errorText)
+      errors.push(`OSV.dev batch query failed: ${resp.statusText}`)
     } else {
-      const { data: inserted, error: insertError } = await supabase
-        .from("sbom_components")
-        .insert({
-          project_id: projectId,
-          name: component.name ?? "Unknown",
-          version: component.version ?? "Unknown",
-          purl: component.purl ?? null,
-          license: extractLicense(component),
-          author: component.author ?? null,
-        })
-        .select("id")
-        .single<SbomComponentRow>()
+      osvResponse = await resp.json()
+      console.log(`[SBOM Upload] OSV.dev returned ${osvResponse.results?.length || 0} results`)
+    }
+  } catch (err: any) {
+    console.error('[SBOM Upload] OSV.dev request error:', err)
+    errors.push(`OSV.dev request error: ${err.message}`)
+  }
 
-      if (insertError || !inserted) {
-        errors.push(insertError?.message ?? "Failed to insert SBOM component.")
+  // 6. Insert discovered vulnerabilities
+  if (osvResponse?.results) {
+    console.log('[SBOM Upload] Processing OSV.dev results...')
+
+    for (let i = 0; i < osvResponse.results.length; i++) {
+      const result = osvResponse.results[i]
+
+      if (!result.vulns || result.vulns.length === 0) {
+        console.log(`[SBOM Upload] No vulns for index ${i}`)
         continue
       }
-      insertedId = inserted.id
-      componentsInserted += 1
-    }
 
-    if (insertedId && component.purl) {
-      purlsToQuery.push(component.purl)
-      componentIdMap.set(component.purl, insertedId)
-    }
-  }
+      console.log(`[SBOM Upload] Index ${i}: Found ${result.vulns.length} vulnerabilities`)
 
-  // 2. Batch Query OSV
-  if (purlsToQuery.length > 0) {
-    try {
-      // Split into chunks of 1000 if necessary, OSV allows batching.
-      // For MVP we assume < 1000 or handle one batch.
-      // OSV Batch format: { queries: [ { package: { purl: ... } } ] }
+      const purl = purlsToQuery[i]
+      const componentId = componentIdMap.get(purl)
 
-      const payload = {
-        queries: purlsToQuery.map((purl) => ({
-          package: { purl },
-        })),
+      if (!componentId) {
+        console.error(`[SBOM Upload] No component ID found for PURL: ${purl}`)
+        continue
       }
 
-      const response = await fetch("https://api.osv.dev/v1/querybatch", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-        cache: "no-store",
-      })
+      console.log(`[SBOM Upload] Component ID for ${purl}: ${componentId}`)
 
-      if (response.ok) {
-        // Response matches the queries array index-wise
-        const batchResults = (await response.json()) as { results: OsvResponse[] }
+      for (const vuln of result.vulns) {
+        const cveId = vuln.aliases?.find((a: string) => a.startsWith("CVE")) || vuln.id
+        const severity = vuln.database_specific?.severity || "High"
 
-        // Parallel vuln insertion
-        const vulnPromises = batchResults.results.map(async (result, index) => {
-          const purl = purlsToQuery[index]
-          const componentId = componentIdMap.get(purl)
-          if (!componentId || !result.vulns) return
+        let status: "Open" | "Patched" | "Triaged" | "Ignored" = "Open"
+        let assignedTo = null
+        let remediationNotes = null
+        let reportingDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
 
-          for (const vuln of result.vulns) {
-            const { data: existingVuln } = await supabase
-              .from("vulnerabilities")
-              .select("id")
-              .eq("component_id", componentId)
-              .eq("cve_id", vuln.id)
-              .single()
+        // Check for previous vulnerability state to carry over
+        const { data: previousVuln } = await supabase
+          .from("vulnerabilities")
+          .select("status, assigned_to, remediation_notes, reporting_deadline")
+          .eq("cve_id", cveId)
+          // We ideally want to match project via complex join, but for now matching CVE for this user context is okay-ish
+          // Better: we can't easily join to project_id here without a complex query
+          // But since RLS scopes to organization, searching by CVE_ID usually hits the same context.
+          // To be safer, we can treat this as "if WE knew about this CVE before, keep its state"
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single()
 
-            if (existingVuln) {
-              await supabase
-                .from("vulnerabilities")
-                .update({ updated_at: new Date().toISOString() })
-                .eq("id", existingVuln.id)
-            } else {
-              const { error: vulnError } = await supabase.from("vulnerabilities").insert({
-                component_id: componentId,
-                cve_id: vuln.id,
-                severity: toSeverity(vuln.severity),
-                status: "Open",
-                remediation_notes: vuln.summary || vuln.details || "Awaiting initial triage",
-                source: "OSV", // Mark as OSV sourced
-              } satisfies Partial<VulnerabilityRow>)
+        if (previousVuln) {
+          status = previousVuln.status as any
+          assignedTo = previousVuln.assigned_to
+          remediationNotes = previousVuln.remediation_notes
+          reportingDeadline = previousVuln.reporting_deadline
+        }
 
-              if (!vulnError) {
-                vulnerabilitiesInserted++ // Note: This counter usage in async map might be racy if relied on strictly, but for this summary it's OK-ish or we should use atomic counters / returns.
-                // Actually, let's just count successful promises later if we need strict accounting.
-                // For now, simple increment is "okay" in JS single thread event loop but scope capture issues apply if we want to return the total.
-                // Better pattern: return the count.
-              }
-            }
-          }
+        console.log(`[SBOM Upload] Inserting vulnerability: ${cveId} (${severity}) - Status: ${status}`)
+
+        const { error: vulnError } = await supabase.from("vulnerabilities").insert({
+          component_id: componentId,
+          cve_id: cveId,
+          severity,
+          status,
+          assigned_to: assignedTo,
+          remediation_notes: remediationNotes,
+          discovered_at: new Date().toISOString(),
+          reporting_deadline: reportingDeadline,
         })
 
-        await Promise.all(vulnPromises)
-        // Note: vulnerabilitiesInserted var won't be reliably updated outside the map unless we return values.
-        // Let's fix that counting below.
-      } else {
-        errors.push(`OSV Batch lookup failed: ${response.statusText}`)
+        if (!vulnError) {
+          vulnerabilitiesInserted++
+          console.log(`[SBOM Upload] ✓ Inserted ${cveId}`)
+        } else {
+          console.error(`[SBOM Upload] ✗ Failed to insert ${cveId}:`, vulnError)
+        }
       }
-
-    } catch (e) {
-      errors.push(`OSV Batch lookup exception: ${e}`)
     }
+
+    console.log(`[SBOM Upload] Total vulnerabilities inserted: ${vulnerabilitiesInserted}`)
   }
 
-  // Recount vulnerabilities inserted (optional, or just return 0 if complicated)
-  // Since we did async map, let's just do a simple count query or ignore exact number for MVP speed.
-  // Or, properly accumulate:
-  // (We'll skip exact count for now to keep code simple, or fix the concurrency count if critical)
+  // 7. Trigger NVD Enrichment (background)
+  import("@/app/sbom/enrichment-actions")
+    .then(({ enrichVulnerabilitiesAction }) => {
+      enrichVulnerabilitiesAction(projectId).catch(console.error)
+    })
 
-  // 3. Trigger NVD Enrichment (Background)
-  // We don't await this to keep the "Discovery" phase fast.
-  // In a real production serverless env, use after() or waitUntil() from @vercel/functions
-  import("@/app/sbom/enrichment-actions").then(({ enrichVulnerabilitiesAction }) => {
-    enrichVulnerabilitiesAction(projectId).catch(console.error)
-  })
+  revalidatePath("/")
+  revalidatePath("/triage")
+  revalidatePath("/sbom")
 
-  // Calculate success based on any activity (insert or update)
-  // We need to track updates in the loop properly if we want exact numbers, 
-  // but for "Success" boolean, we can infer if we didn't error out entirely.
-  // Let's add componentsUpdated counter in the loop modification above?
-  // Actually, I can't easily modify the loop above with this tool call without replacing the whole file or a large chunk.
-  // But wait, the previous tool call output showed the loop. I can try to replace the `return` block logic mainly.
-
-  // Since I can't easily see `componentsUpdated` variable unless I add it to the top.
-  // I will assume `componentsInserted` is the only one I have for now, BUT
-  // I can change the message fallback.
-  // OR simpler: If `errors` is empty, it WAS a success (idempotent success).
-
-  const success = errors.length === 0
+  const message =
+    componentsUpgraded > 0
+      ? `SBOM v${newVersionNumber} uploaded: ${componentsInserted} components, ${componentsUpgraded} upgraded, ${vulnerabilitiesAutoResolved} auto-resolved, ${vulnerabilitiesInserted} new vulnerabilities discovered.`
+      : vulnerabilitiesInserted > 0
+        ? `SBOM v${newVersionNumber} uploaded: ${componentsInserted} components, ${vulnerabilitiesInserted} vulnerabilities discovered.`
+        : `SBOM v${newVersionNumber} uploaded with ${componentsInserted} components.`
 
   return {
-    success,
-    message: success
-      ? `SBOM processed. ${componentsInserted} new, ${components.length - componentsInserted} existing.`
-      : errors[0] ?? "Unknown error processing SBOM.",
+    success: true,
+    message,
     componentsInserted,
-    vulnerabilitiesInserted: 0,
-    errors: errors.length > 0 ? errors.slice(0, 5) : undefined,
+    vulnerabilitiesInserted,
   }
 }

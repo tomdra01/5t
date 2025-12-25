@@ -61,10 +61,27 @@ export default function TriagePage() {
     }
 
     const supabase = createClient()
+
+    // Get the latest SBOM version ID first
+    const { data: latestVersion } = await supabase
+      .from("sbom_versions")
+      .select("id")
+      .eq("project_id", projectId)
+      .order("version_number", { ascending: false })
+      .limit(1)
+      .single()
+
+    if (!latestVersion) {
+      setVulnerabilities([])
+      setIsLoading(false)
+      return
+    }
+
     const { data: components, error: componentError } = await supabase
       .from("sbom_components")
       .select("id,project_id,name,version,purl,license,author,added_at")
       .eq("project_id", projectId)
+      .eq("sbom_version_id", latestVersion.id)
 
     if (componentError) {
       setError("Unable to load SBOM components for this project.")

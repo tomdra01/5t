@@ -149,6 +149,34 @@ export function OrgProjectManager() {
     return vulnerabilities.filter((v) => componentIds.includes(v.component_id)).length
   }
 
+  // Get member workload
+  const getMemberWorkload = (userId: string) => {
+    const now = Date.now()
+    const activeVulns = vulnerabilities.filter(
+      (v) => v.assigned_to === userId && v.status !== "Patched"
+    )
+
+    const critical = activeVulns.filter((v) => {
+      const hoursRemaining = (new Date(v.reporting_deadline).getTime() - now) / (1000 * 60 * 60)
+      return hoursRemaining < 12
+    }).length
+
+    const urgent = activeVulns.filter((v) => {
+      const hoursRemaining = (new Date(v.reporting_deadline).getTime() - now) / (1000 * 60 * 60)
+      return hoursRemaining >= 12 && hoursRemaining < 24
+    }).length
+
+    const normal = activeVulns.filter((v) => {
+      const hoursRemaining = (new Date(v.reporting_deadline).getTime() - now) / (1000 * 60 * 60)
+      return hoursRemaining >= 24
+    }).length
+
+    const total = activeVulns.length
+    const status = critical > 3 ? "overloaded" : critical > 0 || urgent > 5 ? "moderate" : "healthy"
+
+    return { critical, urgent, normal, total, status }
+  }
+
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading...</p>
   }
@@ -348,32 +376,107 @@ export function OrgProjectManager() {
 
         <Card className="border-border/60 bg-card/70">
           <CardHeader>
-            <CardTitle>Team Members</CardTitle>
+            <CardTitle>Team Member Health</CardTitle>
             <CardDescription>
               {selectedOrgId
-                ? `${activeOrgMembers.length} in ${organizations.find((o) => o.id === selectedOrgId)?.name}`
-                : "Select an organization to view members"}
+                ? `${activeOrgMembers.length} members in ${organizations.find((o) => o.id === selectedOrgId)?.name}`
+                : "Select an organization to view member workload"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {activeOrgMembers.length === 0 ? (
               <p className="text-sm text-muted-foreground">No members yet</p>
             ) : (
-              <div className="space-y-2">
-                {activeOrgMembers.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between p-3 border border-border rounded-lg"
-                  >
-                    <div>
-                      <p className="text-sm font-medium">{member.user_id.slice(0, 16)}...</p>
-                      <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {activeOrgMembers.map((member) => {
+                  const workload = getMemberWorkload(member.user_id)
+                  const statusColors = {
+                    overloaded: "border-red-500/50 bg-red-50/50 dark:bg-red-950/20",
+                    moderate: "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20",
+                    healthy: "border-green-500/50 bg-green-50/50 dark:bg-green-950/20",
+                  }
+                  const statusIcons = {
+                    overloaded: "🔴",
+                    moderate: "🟡",
+                    healthy: "🟢",
+                  }
+
+                  return (
+                    <div
+                      key={member.id}
+                      className={`p-4 border-2 rounded-lg ${statusColors[workload.status]}`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold">
+                              {member.user_id.slice(0, 8)}...
+                            </p>
+                            {member.user_id === currentUserId && (
+                              <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
+                        </div>
+                        <span className="text-2xl">{statusIcons[workload.status]}</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-muted-foreground">
+                            Total Active
+                          </span>
+                          <span className="text-sm font-bold">{workload.total}</span>
+                        </div>
+
+                        <div className="h-px bg-border" />
+
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-red-600 dark:text-red-400">
+                              Critical (&lt;12h)
+                            </span>
+                            <span className="text-sm font-semibold text-red-600 dark:text-red-400">
+                              {workload.critical}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-amber-600 dark:text-amber-400">
+                              Urgent (12-24h)
+                            </span>
+                            <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                              {workload.urgent}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              Normal (&gt;24h)
+                            </span>
+                            <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                              {workload.normal}
+                            </span>
+                          </div>
+                        </div>
+
+                        {workload.status === "overloaded" && (
+                          <div className="mt-2 p-2 bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-800 rounded text-xs text-red-800 dark:text-red-200">
+                            ⚠ {workload.critical} critical deadline{workload.critical !== 1 ? "s" : ""} due in &lt;12 hours
+                          </div>
+                        )}
+
+                        {workload.status === "moderate" && workload.urgent > 5 && (
+                          <div className="mt-2 p-2 bg-amber-100 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded text-xs text-amber-800 dark:text-amber-200">
+                            ⚡ High workload: {workload.urgent} urgent deadline{workload.urgent !== 1 ? "s" : ""}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                    {member.user_id === currentUserId && (
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full">You</span>
-                    )}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>

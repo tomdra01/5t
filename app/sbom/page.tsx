@@ -69,11 +69,28 @@ export default function SBOMPage() {
       }
 
       const supabase = createClient()
+
+      // Get the latest SBOM version ID first
+      const { data: latestVersion } = await supabase
+        .from("sbom_versions")
+        .select("id")
+        .eq("project_id", projectId)
+        .order("version_number", { ascending: false })
+        .limit(1)
+        .single()
+
+      if (!latestVersion) {
+        setComponents([])
+        return
+      }
+
+      // Fetch components only for the latest version
       const { data: componentRows, error: componentError } = await supabase
         .from("sbom_components")
         .select("id,name,version,license,purl,author,added_at")
         .eq("project_id", projectId)
-        .order("added_at", { ascending: false })
+        .eq("sbom_version_id", latestVersion.id)
+        .order("name", { ascending: true })
 
       if (componentError) {
         setUploadError("Failed to load SBOM components.")
@@ -86,9 +103,9 @@ export default function SBOMPage() {
         : { data: [] }
 
       const vulnCounts = new Map<string, number>()
-      ;(vulnRows ?? []).forEach((row) => {
-        vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) ?? 0) + 1)
-      })
+        ; (vulnRows ?? []).forEach((row) => {
+          vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) ?? 0) + 1)
+        })
 
       const mapped = (componentRows ?? []).map((component) => ({
         id: component.id,
@@ -121,6 +138,7 @@ export default function SBOMPage() {
       setUploadError(null)
       setUploadStatus(null)
       const parsed = await parseSbomFile(file)
+      // Optimistic update - show components immediately
       setComponents(parsed.components)
 
       if (!projectId) {
@@ -129,13 +147,71 @@ export default function SBOMPage() {
       }
 
       setIsProcessing(true)
-      const result = await uploadSbomAction({ projectId, sbom: parsed.raw })
+
+      // Read file content as string for the action
+      const fileContent = await file.text()
+      const result = await uploadSbomAction({ projectId, fileContent })
+
       if (!result.success) {
         setUploadError(result.message || "Failed to save SBOM data.")
       } else {
-        setUploadStatus(
-          `Saved ${result.componentsInserted} components and ${result.vulnerabilitiesInserted} vulnerabilities.`,
-        )
+        setUploadStatus(result.message)
+        // Refresh data to show new vulnerabilities
+        // We need to trigger the loadComponents effect
+        // A simple way is to force a reload by re-fetching project data
+        // or just calling a refresh function if we extract it
+
+        // Let's re-trigger the project ID change effect or just reload
+        // Since loadComponents depends on projectId, we can just call it if we extract it,
+        // but for now let's just use router.refresh() if we had it, or reload window
+        // Better: trigger a re-fetch manually
+
+        // Re-fetch components to get vulnerability counts from DB
+        const supabase = createClient()
+
+        // Get the latest SBOM version ID first
+        const { data: latestVersion } = await supabase
+          .from("sbom_versions")
+          .select("id")
+          .eq("project_id", projectId)
+          .order("version_number", { ascending: false })
+          .limit(1)
+          .single()
+
+        if (!latestVersion) return
+
+        const { data: componentRows } = await supabase
+          .from("sbom_components")
+          .select("id,name,version,license,purl,author,added_at")
+          .eq("project_id", projectId)
+          .eq("sbom_version_id", latestVersion.id)
+          .order("name", { ascending: true })
+
+        if (componentRows) {
+          const componentIds = componentRows.map(c => c.id)
+          const { data: vulnRows } = componentIds.length
+            ? await supabase.from("vulnerabilities").select("component_id").in("component_id", componentIds)
+            : { data: [] }
+
+          const vulnCounts = new Map<string, number>()
+            ; (vulnRows ?? []).forEach((row) => {
+              vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) ?? 0) + 1)
+            })
+
+          const mapped = componentRows.map((component) => ({
+            id: component.id,
+            name: component.name ?? "Unknown",
+            version: component.version ?? "Unknown",
+            type: "library" as const,
+            license: component.license ?? undefined,
+            purl: component.purl ?? undefined,
+            author: component.author ?? undefined,
+            vulnerabilities: vulnCounts.get(component.id) ?? 0,
+            lastUpdated: new Date(component.added_at ?? new Date().toISOString()),
+          }))
+
+          setComponents(mapped)
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to parse SBOM file."
