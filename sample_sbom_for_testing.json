@@ -1,0 +1,32 @@
+{
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.4",
+    "version": 1,
+    "components": [
+        {
+            "name": "log4j-core",
+            "version": "2.14.1",
+            "purl": "pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1",
+            "type": "library",
+            "licenses": [
+                {
+                    "license": {
+                        "id": "Apache-2.0"
+                    }
+                }
+            ]
+        },
+        {
+            "name": "jackson-databind",
+            "version": "2.12.3",
+            "purl": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.12.3",
+            "type": "library"
+        },
+        {
+            "name": "react",
+            "version": "16.13.1",
+            "purl": "pkg:npm/react@16.13.1",
+            "type": "library"
+        }
+    ]
+}

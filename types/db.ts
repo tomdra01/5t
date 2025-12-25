@@ -45,6 +45,18 @@ export interface VulnerabilityRow {
   discovered_at: string
   reporting_deadline: string
   updated_at: string | null
+  // Hybrid Scanning additions
+  nvd_severity: string | null
+  nvd_score: number | null
+  source: string | null
+}
+
+export interface UserSettingsRow {
+  user_id: string
+  nvd_api_key: string | null
+  hybrid_scanning_enabled: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface ComplianceReportRow {

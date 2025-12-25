@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Bell, Database } from "lucide-react"
+import { Bell } from "lucide-react"
 import { UserSummary } from "@/components/settings/user-summary"
+import { IntegrationsManager } from "@/components/settings/integrations-manager"
 
 export default function SettingsPage() {
   return (
@@ -62,45 +63,7 @@ export default function SettingsPage() {
         <UserSummary />
 
         {/* Integration Settings */}
-        <Card className="border-border bg-card">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
-                <Database className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <CardTitle className="text-xl font-semibold">Integrations</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div>
-                <p className="text-sm font-medium">SBOM Scanner API</p>
-                <p className="text-xs text-muted-foreground mt-1">Not configured</p>
-              </div>
-              <Button variant="outline" size="sm">
-                Configure
-              </Button>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div>
-                <p className="text-sm font-medium">Vulnerability Database</p>
-                <p className="text-xs text-muted-foreground mt-1">Not configured</p>
-              </div>
-              <Button variant="outline" size="sm">
-                Configure
-              </Button>
-            </div>
-            <div className="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-              <div>
-                <p className="text-sm font-medium">Email Service</p>
-                <p className="text-xs text-muted-foreground mt-1">Not configured</p>
-              </div>
-              <Button variant="outline" size="sm">
-                Configure
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <IntegrationsManager />
       </div>
     </Container>
   )

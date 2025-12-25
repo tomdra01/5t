@@ -13,6 +13,7 @@ import type { ComplianceReportRow, SbomComponentRow, VulnerabilityRow } from "@/
 import { ComplianceHealthScore } from "@/components/dashboard/compliance-health-score"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
 import { generateComplianceReport } from "@/app/triage/actions"
+import { toast } from "sonner"
 
 interface ActivityItem {
   id: string
@@ -33,6 +34,8 @@ export default function DashboardPage() {
   const [reportMessage, setReportMessage] = useState<string | null>(null)
 
   useEffect(() => {
+    const supabase = createClient()
+
     const loadDashboard = async () => {
       setIsLoading(true)
       setError(null)
@@ -47,7 +50,6 @@ export default function DashboardPage() {
         return
       }
 
-      const supabase = createClient()
       const { data: componentsData, error: componentError } = await supabase
         .from("sbom_components")
         .select("id,project_id,name,version,purl,license,author,added_at")
@@ -115,6 +117,40 @@ export default function DashboardPage() {
     }
 
     loadDashboard()
+
+    // Realtime Subscription
+    const channel = supabase
+      .channel("dashboard-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "vulnerabilities" },
+        () => {
+          // Debounce or just reload
+          console.log("Realtime update: vulnerabilities")
+          toast.info("New vulnerabilities detected. Updating dashboard...", {
+            duration: 3000,
+            icon: <AlertTriangle className="h-4 w-4 text-amber-500" />
+          })
+          loadDashboard()
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sbom_components" },
+        () => {
+          console.log("Realtime update: sbom_components")
+          toast.success("SBOM component processed.", {
+            duration: 3000,
+            icon: <Package className="h-4 w-4 text-green-500" />
+          })
+          loadDashboard()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [projectId])
 
   const overdueCount = useMemo(() => {
