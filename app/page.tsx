@@ -120,7 +120,17 @@ export default function DashboardPage() {
 
     loadDashboard()
 
-    // Realtime Subscription
+    // Realtime Subscription with debounced refresh
+    let refreshTimeout: NodeJS.Timeout
+
+    const debouncedRefresh = () => {
+      clearTimeout(refreshTimeout)
+      refreshTimeout = setTimeout(() => {
+        console.log("Refreshing dashboard after batch updates...")
+        loadDashboard()
+      }, 2000) // Wait 2 seconds of silence before refreshing
+    }
+
     const channel = supabase
       .channel("dashboard-realtime")
       .on(
@@ -130,9 +140,10 @@ export default function DashboardPage() {
           console.log("Realtime update: vulnerabilities")
           toast.info("New vulnerabilities detected. Updating dashboard...", {
             duration: 3000,
-            icon: <AlertTriangle className="h-4 w-4 text-amber-500" />
+            icon: <AlertTriangle className="h-4 w-4 text-amber-500" />,
+            id: "vuln-update", // Prevent multiple toast stacks
           })
-          loadDashboard()
+          debouncedRefresh()
         }
       )
       .on(
@@ -142,14 +153,16 @@ export default function DashboardPage() {
           console.log("Realtime update: sbom_components")
           toast.success("SBOM component processed.", {
             duration: 3000,
-            icon: <Package className="h-4 w-4 text-green-500" />
+            icon: <Package className="h-4 w-4 text-green-500" />,
+            id: "sbom-update",
           })
-          loadDashboard()
+          debouncedRefresh()
         }
       )
       .subscribe()
 
     return () => {
+      clearTimeout(refreshTimeout)
       supabase.removeChannel(channel)
     }
   }, [projectId])
