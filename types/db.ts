@@ -93,3 +93,11 @@ export interface ComplianceReportRow {
   sent_to_regulator: boolean | null
   created_at: string
 }
+
+export interface ProfileRow {
+  id: string
+  email: string | null
+  full_name: string | null
+  avatar_url: string | null
+  updated_at: string | null
+}
