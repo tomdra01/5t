@@ -32,6 +32,19 @@ export interface SbomComponentRow {
   license: string | null
   author: string | null
   added_at: string
+  // Versioning
+  sbom_version_id: string | null
+  previous_version: string | null
+}
+
+export interface SbomVersionRow {
+  id: string
+  project_id: string
+  version_number: number
+  uploaded_at: string
+  uploaded_by: string | null
+  component_count: number
+  file_hash: string | null
 }
 
 export interface VulnerabilityRow {
@@ -49,6 +62,19 @@ export interface VulnerabilityRow {
   nvd_severity: string | null
   nvd_score: number | null
   source: string | null
+  fixed_at: string | null
+}
+
+export interface RemediationMilestoneRow {
+  id: string
+  vulnerability_id: string
+  milestone_type: string
+  milestone_date: string
+  old_value: string | null
+  new_value: string | null
+  triggered_by: string | null
+  notes: string | null
+  sbom_version_id: string | null
 }
 
 export interface UserSettingsRow {
