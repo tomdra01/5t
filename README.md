@@ -76,7 +76,7 @@ The system relies on a robust schema designed for scale and auditability:
 ### 2. Setup
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/tomdra01/5t.git
 
 # Install dependencies
 npm install
