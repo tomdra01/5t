@@ -22,10 +22,11 @@ export function Sidebar() {
       <div className="flex h-full flex-col items-center py-6 gap-8">
         {/* Logo */}
         <Link href="/" className="flex items-center justify-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-sm">
-            5t
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 overflow-hidden">
+            <img src="/logo.png" alt="5teen" className="h-8 w-8 object-contain" />
           </div>
         </Link>
+
 
         {/* Navigation */}
         <nav className="flex flex-col gap-2 flex-1">

@@ -58,9 +58,15 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <Card className="w-full max-w-md border-border/60 bg-card/70">
-        <CardHeader>
-          <CardTitle className="text-2xl font-semibold">Create account</CardTitle>
+        <CardHeader className="space-y-4">
+          <div className="flex justify-center">
+            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
+              <img src="/logo.png" alt="5teen" className="h-12 w-12 object-contain" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl font-semibold text-center">Create account</CardTitle>
         </CardHeader>
+
         <CardContent>
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div className="space-y-2">
