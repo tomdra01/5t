@@ -58,7 +58,7 @@ export default function DashboardPage() {
 
       const { data: componentsData, error: componentError } = await supabase
         .from("sbom_components")
-        .select("id,project_id,name,version,purl,license,author,added_at")
+        .select("id,project_id,name,version,purl,license,author,added_at,sbom_version_id,previous_version")
         .eq("project_id", projectId)
         .order("added_at", { ascending: false })
 
