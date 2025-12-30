@@ -197,22 +197,19 @@ export default function ReportPrintPage() {
                     </h2>
                     <div className="space-y-4 text-gray-700 leading-relaxed">
                         <p>
-                            This compliance report demonstrates {project.name}'s adherence to the EU Cyber Resilience Act (CRA)
-                            essential cybersecurity requirements. Our continuous vulnerability management process ensures
-                            that all discovered security issues are tracked, assigned, and remediated within regulatory deadlines.
+                            This report shows {project.name}'s compliance with EU Cyber Resilience Act requirements.
+                            All vulnerabilities are tracked and assigned with target resolution dates.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Technical Risk Profile:</strong> The project maintains {components.length} active
-                            software components with {vulnerabilities.length} total vulnerabilities identified. Of these, {patchedCount} have
-                            been remediated and {openCount} remain under active management with assigned ownership and target resolution dates.
+                            <strong className="text-gray-900">Risk Profile:</strong> {components.length} components tracked with {vulnerabilities.length} vulnerabilities.
+                            {patchedCount} resolved, {openCount} in progress.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Legal Compliance Status:</strong> {article14Pass && article15Pass ? (
-                                <>Our processes fully comply with CRA Articles 14 and 15, demonstrating due diligence in vulnerability
-                                    discovery, reporting, and remediation.</>
+                            <strong className="text-gray-900">Compliance:</strong> {article14Pass && article15Pass ? (
+                                <>CRA Articles 14 & 15 requirements met.</>
                             ) : (
-                                <>We are addressing {!article14Pass ? "overdue reporting deadlines" : ""} {!article14Pass && !article15Pass ? "and" : ""}
-                                    {!article15Pass ? "ownership assignment gaps" : ""} to achieve full compliance.</>
+                                <>Working to resolve {!article14Pass ? "overdue deadlines" : ""} {!article14Pass && !article15Pass ? "and" : ""}
+                                    {!article15Pass ? "unassigned vulnerabilities" : ""}.</>
                             )}
                         </p>
                     </div>
@@ -240,7 +237,7 @@ export default function ReportPrintPage() {
                         Remediation Roadmap
                     </h2>
                     <p className="text-sm text-gray-600 mb-4">
-                        Due diligence demonstration: Target resolution dates for all open vulnerabilities
+                        Target resolution dates for open vulnerabilities
                     </p>
                     {sortedByDeadline.length === 0 ? (
                         <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
@@ -398,17 +395,13 @@ export default function ReportPrintPage() {
                     </h2>
                     <div className="space-y-4 text-gray-700 leading-relaxed">
                         <p>
-                            <strong className="text-gray-900">Article 14:</strong> This report documents all actively exploited vulnerabilities
-                            discovered in our product with digital elements, as required for manufacturer reporting to ENISA.
+                            <strong className="text-gray-900">Article 14:</strong> All vulnerabilities documented for ENISA reporting requirements.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Article 15:</strong> All vulnerabilities are tracked with 24-hour reporting deadlines,
-                            demonstrated ownership, and remediation milestones aligned with coordinated vulnerability
-                            disclosure practices.
+                            <strong className="text-gray-900">Article 15:</strong> Vulnerabilities tracked with 24-hour deadlines and assigned ownership.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Annex I:</strong> This documentation serves as evidence of continuous vulnerability
-                            management and demonstrates our compliance with essential cybersecurity requirements.
+                            <strong className="text-gray-900">Annex I:</strong> This report demonstrates continuous vulnerability management.
                         </p>
                     </div>
                 </section>
@@ -447,9 +440,7 @@ export default function ReportPrintPage() {
                         </div>
                         <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded">
                             <p className="text-xs text-gray-600">
-                                <strong>Declaration:</strong> I certify that this compliance report accurately reflects the current
-                                state of vulnerability management for {project.name} and that all information provided is complete
-                                and accurate to the best of my knowledge.
+                                <strong>Declaration:</strong> This report accurately reflects vulnerability management for {project.name}.
                             </p>
                         </div>
                     </div>

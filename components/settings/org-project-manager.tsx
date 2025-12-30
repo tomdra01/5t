@@ -49,17 +49,17 @@ export function OrgProjectManager() {
     ])
 
     if (!orgResult.error) {
-      const orgs = orgResult.data ?? []
+      const orgs = orgResult.data || []
       setOrganizations(orgs)
       if (orgs.length > 0 && !selectedOrgId) {
         setSelectedOrgId(orgs[0].id)
       }
     }
 
-    setProjects(projectResult.data ?? [])
-    setMemberships(memberResult.data ?? [])
-    setComponents(componentResult.data ?? [])
-    setVulnerabilities(vulnerabilityResult.data ?? [])
+    setProjects(projectResult.data || [])
+    setMemberships(memberResult.data || [])
+    setComponents(componentResult.data || [])
+    setVulnerabilities(vulnerabilityResult.data || [])
     setIsLoading(false)
   }
 

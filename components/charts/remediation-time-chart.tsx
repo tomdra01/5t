@@ -24,7 +24,7 @@ export function RemediationTimeChart({ vulnerabilities }: RemediationTimeChartPr
 
             // Get vulnerabilities patched on this day
             const dailyPatched = vulnerabilities.filter((v) => {
-                if (!v.updated_at || !["Patched", "resolved"].includes(v.status ?? "")) return false
+                if (!v.updated_at || !["Patched", "resolved"].includes(v.status || "")) return false
                 const updated = new Date(v.updated_at)
                 return format(updated, "yyyy-MM-dd") === dateStr
             })

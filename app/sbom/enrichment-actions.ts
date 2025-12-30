@@ -9,12 +9,11 @@ export async function enrichVulnerabilitiesAction(projectId: string) {
     const settings = await getSettings()
     const apiKey = settings?.nvd_api_key
 
-    // 1. Get vulnerabilities for the project that don't have NVD data yet
     const { data: vulns, error } = await supabase
         .from("vulnerabilities")
         .select("id, cve_id, component_id, sbom_components!inner(project_id)")
         .eq("sbom_components.project_id", projectId)
-        .is("nvd_score", null) // Only fetch missing ones
+        .is("nvd_score", null)
         .limit(50)
 
     if (error) {
@@ -27,14 +26,14 @@ export async function enrichVulnerabilitiesAction(projectId: string) {
     }
 
     let enrichedCount = 0
-    const BATCH_SIZE = apiKey ? 5 : 1; // Conservative concurrency
+    const BATCH_SIZE = apiKey ? 5 : 1
+    const DELAY = apiKey ? 100 : 600
 
-    // Process in batches
     for (let i = 0; i < vulns.length; i += BATCH_SIZE) {
-        const batch = vulns.slice(i, i + BATCH_SIZE);
+        const batch = vulns.slice(i, i + BATCH_SIZE)
 
         await Promise.all(batch.map(async (vuln) => {
-            if (!vuln.cve_id.startsWith("CVE-")) return;
+            if (!vuln.cve_id.startsWith("CVE-")) return
 
             const nvdData = await fetchNvdData(vuln.cve_id, apiKey)
             if (nvdData) {
@@ -48,18 +47,9 @@ export async function enrichVulnerabilitiesAction(projectId: string) {
                     .eq("id", vuln.id)
                 enrichedCount++
             }
-        }));
+        }))
 
-        // Rate limit delay between batches to be safe
-        // With API key: 50 requests / 0.6s -> effectively unlimited for small batches
-        // Without API key: 50 requests / 30s -> roughly 1.6 req/s. 
-        // Our batch size 1 means we need ~600ms delays.
-        if (!apiKey) {
-            await new Promise(resolve => setTimeout(resolve, 600))
-        } else {
-            // Small breathing room even with key
-            await new Promise(resolve => setTimeout(resolve, 100))
-        }
+        await new Promise(resolve => setTimeout(resolve, DELAY))
     }
 
     return { success: true, message: `Enriched ${enrichedCount} vulnerabilities.`, count: enrichedCount }

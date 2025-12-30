@@ -33,51 +33,40 @@ export function DropZone({ onFileUpload }: DropZoneProps) {
     setIsDragging(false)
   }, [])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setIsDragging(false)
-
-      const files = e.dataTransfer.files
-      if (files && files[0]) {
-        processFile(files[0])
-      }
-    },
-    [onFileUpload],
-  )
-
-  const handleFileInput = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = e.target.files
-      if (files && files[0]) {
-        processFile(files[0])
-      }
-    },
-    [onFileUpload],
-  )
-
   const processFile = (file: File) => {
     setFileName(file.name)
 
-    // Validate file type
-    if (file.type === "application/json" || file.name.endsWith(".json") || file.name.endsWith(".spdx")) {
+    const isValidFile = file.type === "application/json" ||
+                       file.name.endsWith(".json") ||
+                       file.name.endsWith(".spdx")
+
+    if (isValidFile) {
       setUploadStatus("success")
       onFileUpload(file)
-
-      // Reset after 3 seconds
-      setTimeout(() => {
-        setUploadStatus("idle")
-        setFileName("")
-      }, 3000)
     } else {
       setUploadStatus("error")
-      setTimeout(() => {
-        setUploadStatus("idle")
-        setFileName("")
-      }, 3000)
     }
+
+    setTimeout(() => {
+      setUploadStatus("idle")
+      setFileName("")
+    }, 3000)
   }
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+    if (e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0])
+    }
+  }, [onFileUpload])
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      processFile(e.target.files[0])
+    }
+  }, [onFileUpload])
 
   return (
     <Card className="rounded-3xl border-2 border-dashed border-border/60 bg-card/60 backdrop-blur-sm transition-all hover:border-primary/60">

@@ -46,12 +46,12 @@ export default function SBOMPage() {
         return
       }
 
-      const safeProjects = data ?? []
+      const safeProjects = data || []
       setProjects(safeProjects)
 
       const stored = typeof window !== "undefined" ? window.localStorage.getItem("selectedProjectId") : null
       const storedValid = stored && safeProjects.some((project) => project.id === stored)
-      const nextProjectId = storedValid ? stored : projectId || safeProjects[0]?.id || ""
+      const nextProjectId = storedValid ? stored : projectId || safeProjects[0]?.id
       if (nextProjectId) {
         setProjectId(nextProjectId)
       }
@@ -97,26 +97,26 @@ export default function SBOMPage() {
         return
       }
 
-      const componentIds = (componentRows ?? []).map((component) => component.id)
+      const componentIds = (componentRows || []).map((component) => component.id)
       const { data: vulnRows } = componentIds.length
         ? await supabase.from("vulnerabilities").select("component_id").in("component_id", componentIds)
         : { data: [] }
 
       const vulnCounts = new Map<string, number>()
-        ; (vulnRows ?? []).forEach((row) => {
-          vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) ?? 0) + 1)
-        })
+      ;(vulnRows || []).forEach((row) => {
+        vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) || 0) + 1)
+      })
 
-      const mapped = (componentRows ?? []).map((component) => ({
+      const mapped = (componentRows || []).map((component) => ({
         id: component.id,
-        name: component.name ?? "Unknown",
-        version: component.version ?? "Unknown",
+        name: component.name || "Unknown",
+        version: component.version || "Unknown",
         type: "library" as const,
-        license: component.license ?? undefined,
-        purl: component.purl ?? undefined,
-        author: component.author ?? undefined,
-        vulnerabilities: vulnCounts.get(component.id) ?? 0,
-        lastUpdated: new Date(component.added_at ?? new Date().toISOString()),
+        license: component.license || undefined,
+        purl: component.purl || undefined,
+        author: component.author || undefined,
+        vulnerabilities: vulnCounts.get(component.id) || 0,
+        lastUpdated: new Date(component.added_at || new Date().toISOString()),
       }))
 
       setComponents(mapped)
@@ -194,20 +194,20 @@ export default function SBOMPage() {
             : { data: [] }
 
           const vulnCounts = new Map<string, number>()
-            ; (vulnRows ?? []).forEach((row) => {
-              vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) ?? 0) + 1)
-            })
+          ;(vulnRows || []).forEach((row) => {
+            vulnCounts.set(row.component_id, (vulnCounts.get(row.component_id) || 0) + 1)
+          })
 
           const mapped = componentRows.map((component) => ({
             id: component.id,
-            name: component.name ?? "Unknown",
-            version: component.version ?? "Unknown",
+            name: component.name || "Unknown",
+            version: component.version || "Unknown",
             type: "library" as const,
-            license: component.license ?? undefined,
-            purl: component.purl ?? undefined,
-            author: component.author ?? undefined,
-            vulnerabilities: vulnCounts.get(component.id) ?? 0,
-            lastUpdated: new Date(component.added_at ?? new Date().toISOString()),
+            license: component.license || undefined,
+            purl: component.purl || undefined,
+            author: component.author || undefined,
+            vulnerabilities: vulnCounts.get(component.id) || 0,
+            lastUpdated: new Date(component.added_at || new Date().toISOString()),
           }))
 
           setComponents(mapped)
