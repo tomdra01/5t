@@ -75,7 +75,7 @@ export default function DashboardPage() {
       if (componentIds.length > 0) {
         const { data: vulnRows, error: vulnError } = await supabase
           .from("vulnerabilities")
-          .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")
+          .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at,nvd_severity,nvd_score,source,fixed_at")
           .in("component_id", componentIds)
 
         if (vulnError) {
