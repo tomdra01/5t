@@ -46,8 +46,8 @@ export default function LoginPage() {
       <Card className="w-full max-w-md border-border/60 bg-card/70">
         <CardHeader className="space-y-4">
           <div className="flex justify-center">
-            <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center overflow-hidden">
-              <img src="/logo.png" alt="5teen" className="h-12 w-12 object-contain" />
+            <div className="h-20 w-20 rounded-3xl bg-white shadow-sm border border-border/40 flex items-center justify-center overflow-hidden p-3">
+              <img src="/logo-white.png" alt="5teen" className="h-full w-full object-contain" />
             </div>
           </div>
           <CardTitle className="text-2xl font-semibold text-center">Sign in</CardTitle>

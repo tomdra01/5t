@@ -13,8 +13,11 @@ import type { ComplianceReportRow, SbomComponentRow, VulnerabilityRow } from "@/
 import { RadialComplianceChart } from "@/components/charts/radial-compliance-chart"
 import { VulnerabilityTrendChart } from "@/components/charts/vulnerability-trend-chart"
 import { SeverityDistributionChart } from "@/components/charts/severity-distribution-chart"
+import { RemediationTimeChart } from "@/components/charts/remediation-time-chart"
 import { RecentActivity } from "@/components/dashboard/recent-activity"
+
 import { generateComplianceReport } from "@/app/triage/actions"
+import { calculateRemediationStats } from "@/lib/metrics"
 import { toast } from "sonner"
 
 interface ActivityItem {
@@ -23,6 +26,7 @@ interface ActivityItem {
   createdAt: string
   label: string
 }
+
 
 export default function DashboardPage() {
   const { projectId } = useProjectContext()
@@ -300,7 +304,11 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <VulnerabilityTrendChart vulnerabilities={vulnerabilities} />
               <SeverityDistributionChart vulnerabilities={vulnerabilities} />
+              <div className="lg:col-span-2">
+                <RemediationTimeChart vulnerabilities={vulnerabilities} />
+              </div>
             </div>
+
 
             {/* Additional Analytics */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -317,8 +325,14 @@ export default function DashboardPage() {
               <Card className="p-6 border-border/60 bg-card/70">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Average Time to Patch</p>
-                  <p className="text-3xl font-bold">—</p>
-                  <p className="text-xs text-muted-foreground">Coming soon</p>
+                  <p className="text-3xl font-bold">
+                    {calculateRemediationStats(vulnerabilities).averageRemediationHours !== null
+                      ? `${calculateRemediationStats(vulnerabilities).averageRemediationHours}h`
+                      : "—"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {vulnerabilities.filter(v => ["Patched", "resolved"].includes(v.status ?? "")).length} resolved
+                  </p>
                 </div>
               </Card>
 
@@ -326,11 +340,12 @@ export default function DashboardPage() {
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-muted-foreground">Compliance Score</p>
                   <p className="text-3xl font-bold">
-                    {vulnerabilities.length === 0 ? 100 : Math.max(0, Math.round(100 - (overdueCount / vulnerabilities.length) * 100))}%
+                    {calculateRemediationStats(vulnerabilities).deadlinesMetPercent}%
                   </p>
                   <p className="text-xs text-muted-foreground">Based on deadlines</p>
                 </div>
               </Card>
+
             </div>
           </TabsContent>
 

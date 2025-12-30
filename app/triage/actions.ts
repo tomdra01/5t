@@ -68,6 +68,9 @@ export async function updateVulnerabilityAction({
   return { success: true, message: "Vulnerability updated successfully." }
 }
 
+
+import { calculateRemediationStats } from "@/lib/metrics"
+
 interface GenerateComplianceReportInput {
   projectId: string
 }
@@ -145,41 +148,7 @@ export async function generateComplianceReport({
   }
 
   const vulnerabilities = (vulnRows ?? []) as VulnerabilityRow[]
-  const totalVulnerabilities = vulnerabilities.length
-  const criticalCount = vulnerabilities.filter(
-    (vuln) => (vuln.severity ?? "").toLowerCase() === "critical",
-  ).length
-
-  const remediationDurations = vulnerabilities
-    .filter((vuln) => {
-      const status = (vuln.status ?? "").toLowerCase()
-      return status === "patched" || status === "resolved"
-    })
-    .map((vuln) => {
-      if (!vuln.updated_at) {
-        return null
-      }
-      const discovered = new Date(vuln.discovered_at)
-      const resolved = new Date(vuln.updated_at)
-      const diffMs = resolved.getTime() - discovered.getTime()
-      return diffMs > 0 ? diffMs : null
-    })
-    .filter((value): value is number => typeof value === "number")
-
-  const averageRemediationHours =
-    remediationDurations.length > 0
-      ? Math.round((remediationDurations.reduce((sum, value) => sum + value, 0) / remediationDurations.length) / 3600000)
-      : null
-
-  const deadlineCandidates = vulnerabilities.filter((vuln) => vuln.reporting_deadline && vuln.updated_at)
-  const metDeadlines = deadlineCandidates.filter((vuln) => {
-    const updatedAt = new Date(vuln.updated_at as string)
-    const deadline = new Date(vuln.reporting_deadline)
-    return updatedAt.getTime() <= deadline.getTime()
-  }).length
-
-  const deadlinesMetPercent =
-    deadlineCandidates.length > 0 ? Math.round((metDeadlines / deadlineCandidates.length) * 100) : 0
+  const stats = calculateRemediationStats(vulnerabilities)
 
   const { error: reportError } = await supabase.from("compliance_reports").insert({
     project_id: projectId,
@@ -190,19 +159,14 @@ export async function generateComplianceReport({
     return {
       success: false,
       message: `Report generated but failed to log: ${reportError.message}`,
-      criticalCount,
-      averageRemediationHours,
-      deadlinesMetPercent,
-      totalVulnerabilities,
+      ...stats,
     }
   }
 
   return {
     success: true,
     message: "Compliance report generated.",
-    criticalCount,
-    averageRemediationHours,
-    deadlinesMetPercent,
-    totalVulnerabilities,
+    ...stats,
   }
 }
+
