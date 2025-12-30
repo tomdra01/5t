@@ -5,6 +5,14 @@ interface ParsedSBOM {
   raw: UnknownRecord
 }
 
+export interface ParsedComponent {
+  name: string
+  version: string
+  purl?: string
+  license?: string | { id?: string; name?: string }
+  author?: string
+}
+
 type UnknownRecord = Record<string, unknown>
 
 function asArray<T>(value: unknown): T[] {
@@ -48,8 +56,22 @@ function extractCycloneDxLicense(component: UnknownRecord): string | undefined {
   )
 }
 
-// Helper for server-side actions
-export function extractLicense(component: any): string | null {
+interface LicenseComponent {
+  licenses?: Array<{
+    license?: {
+      name?: string
+      id?: string
+    }
+  }>
+  licenseConcluded?: string
+  licenseDeclared?: string
+  license?: string | {
+    id?: string
+    name?: string
+  }
+}
+
+export function extractLicense(component: LicenseComponent): string | null {
   if (!component) return null
 
   // Handle CycloneDX format
@@ -150,8 +172,7 @@ function parseSpdx(data: UnknownRecord): ParsedSBOM {
   return { components, raw: { components: normalizedComponents } }
 }
 
-// Server-side SBOM parsing from string content
-export function parseSbom(content: string): any[] {
+export function parseSbom(content: string): ParsedComponent[] {
   const data = JSON.parse(content) as UnknownRecord
 
   let parsed: ParsedSBOM
@@ -174,8 +195,7 @@ export function parseSbom(content: string): any[] {
     }
   }
 
-  // Return raw components for server actions
-  return asArray(parsed.raw.components || data.components || data.packages)
+  return asArray<ParsedComponent>(parsed.raw.components || data.components || data.packages)
 }
 
 // Client-side file parsing
