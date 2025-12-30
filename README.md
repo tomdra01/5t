@@ -103,7 +103,6 @@ npm run dev
 - [x] **Article 15**: Automated 24-hour discovery-to-deadline tracking.
 - [x] **Article 14**: Continuous monitoring and documentation of vulnerability status.
 - [x] **Annex I**: Structured report generation for regulatory evidence.
-- [ ] **Coming Soon**: Vulnerability Disclosure Policy (VDP) portal integration.
 
 ---
 *This project was completed as an individual case study for the Secure Software Development course (E2025).*
