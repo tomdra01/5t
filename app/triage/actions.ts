@@ -32,7 +32,6 @@ export async function updateVulnerabilityAction(input: {
       discovered: "Open",
       "in-remediation": "Triaged",
       resolved: "Patched",
-      reported: "Reported",
     }
 
     const mappedStatus = input.status ? statusMapping[input.status] || input.status : undefined
@@ -61,6 +60,38 @@ export async function updateVulnerabilityAction(input: {
     return { success: true, message: "Vulnerability updated successfully" }
   } catch (error) {
     return handleError(error) as UpdateVulnerabilityResult
+  }
+}
+
+export async function autoIgnorePastDeadlineAction(input: {
+  projectId: string
+}): Promise<{ success: boolean; message: string; ignoredCount: number }> {
+  try {
+    const supabase = await createClient()
+    const { data: userData, error: userError } = await supabase.auth.getUser()
+
+    if (userError || !userData.user) {
+      throw new AuthenticationError()
+    }
+
+    const vulnerabilityRepo = new VulnerabilityRepository(supabase)
+    const ignoredCount = await vulnerabilityRepo.autoIgnorePastDeadline(input.projectId)
+
+    revalidatePath("/triage")
+    revalidatePath("/")
+
+    return {
+      success: true,
+      message: ignoredCount > 0 ? `${ignoredCount} vulnerabilities auto-ignored due to missed deadlines` : "No vulnerabilities to auto-ignore",
+      ignoredCount,
+    }
+  } catch (error) {
+    const result = handleError(error)
+    return {
+      success: false,
+      message: result.message,
+      ignoredCount: 0,
+    }
   }
 }
 

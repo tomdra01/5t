@@ -53,7 +53,7 @@ export class ComponentRepository {
       .select("*")
       .eq("project_id", projectId)
       .eq("name", name)
-      .order("created_at", { ascending: false })
+      .order("added_at", { ascending: false })
       .limit(1)
       .single()
 
@@ -64,11 +64,7 @@ export class ComponentRepository {
   async create(input: CreateComponentInput): Promise<Component | null> {
     const { data, error } = await this.supabase
       .from("sbom_components")
-      .insert({
-        ...input,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .insert(input)
       .select()
       .single()
 
@@ -80,16 +76,9 @@ export class ComponentRepository {
   }
 
   async createMany(inputs: CreateComponentInput[]): Promise<Component[]> {
-    const now = new Date().toISOString()
-    const componentsWithTimestamps = inputs.map(input => ({
-      ...input,
-      created_at: now,
-      updated_at: now,
-    }))
-
     const { data, error } = await this.supabase
       .from("sbom_components")
-      .insert(componentsWithTimestamps)
+      .insert(inputs)
       .select()
 
     if (error) {

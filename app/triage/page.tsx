@@ -97,6 +97,12 @@ export default function TriagePage() {
       return
     }
 
+    // Auto-ignore past-deadline vulnerabilities before loading
+    if (projectId) {
+      const { autoIgnorePastDeadlineAction } = await import("@/app/triage/actions")
+      await autoIgnorePastDeadlineAction({ projectId })
+    }
+
     const { data: vulnRows, error: vulnError } = await supabase
       .from("vulnerabilities")
       .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")

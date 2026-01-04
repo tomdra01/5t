@@ -37,16 +37,44 @@ export class SbomService {
       }
     }
 
+    const { data: project } = await this.supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .single()
+
+    if (!project) {
+      return {
+        success: false,
+        message: "Project not found or you don't have access",
+        componentsInserted: 0,
+        vulnerabilitiesInserted: 0,
+      }
+    }
+
     const fileHash = await this.hashContent(fileContent)
     const existingVersion = await this.sbomRepo.findVersionByHash(projectId, fileHash)
 
     if (existingVersion) {
-      await this.sbomRepo.updateVersionTimestamp(existingVersion.id)
-      return {
-        success: true,
-        message: "Identical SBOM already uploaded. Timestamps updated.",
-        componentsInserted: 0,
-        vulnerabilitiesInserted: 0,
+      const { data: existingComponents } = await this.supabase
+        .from("sbom_components")
+        .select("id")
+        .eq("sbom_version_id", existingVersion.id)
+        .limit(1)
+
+      if (existingComponents && existingComponents.length > 0) {
+        await this.sbomRepo.updateVersionTimestamp(existingVersion.id)
+        return {
+          success: true,
+          message: "Identical SBOM already uploaded. Timestamps updated.",
+          componentsInserted: 0,
+          vulnerabilitiesInserted: 0,
+        }
+      } else {
+        await this.supabase
+          .from("sbom_versions")
+          .delete()
+          .eq("id", existingVersion.id)
       }
     }
 
@@ -82,6 +110,7 @@ export class SbomService {
       sbom_version_id: sbomVersion.id,
       name: comp.name,
       version: comp.version,
+      type: "library",
       purl: this.generatePurl(comp) || null,
       license: extractLicense(comp) || null,
       author: comp.author || null,

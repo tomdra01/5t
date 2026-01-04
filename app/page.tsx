@@ -27,6 +27,21 @@ interface ActivityItem {
   label: string
 }
 
+const mapStatus = (status?: string | null): string => {
+  switch ((status || "open").toLowerCase()) {
+    case "reported":
+      return "Reported"
+    case "triaged":
+      return "In Remediation"
+    case "patched":
+      return "Resolved"
+    case "ignored":
+      return "Ignored"
+    case "open":
+    default:
+      return "Discovered"
+  }
+}
 
 export default function DashboardPage() {
   const { projectId } = useProjectContext()
@@ -71,11 +86,17 @@ export default function DashboardPage() {
       const componentRows = componentsData || []
       setComponents(componentRows)
 
+      // Auto-ignore past-deadline vulnerabilities before loading
+      if (projectId) {
+        const { autoIgnorePastDeadlineAction } = await import("@/app/triage/actions")
+        await autoIgnorePastDeadlineAction({ projectId })
+      }
+
       const componentIds = componentRows.map((component) => component.id)
       if (componentIds.length > 0) {
         const { data: vulnRows, error: vulnError } = await supabase
           .from("vulnerabilities")
-          .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at,nvd_severity,nvd_score,source,fixed_at")
+          .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")
           .in("component_id", componentIds)
 
         if (vulnError) {
@@ -349,43 +370,61 @@ export default function DashboardPage() {
                 <CardDescription>Track vulnerability discovery and resolution over time</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {vulnerabilities.slice(0, 10).map((vuln) => (
-                    <div key={vuln.id} className="flex items-start gap-4 border-l-2 border-primary pl-4 py-2">
-                      <div className="flex-1">
-                        <p className="font-medium">{vuln.cve_id}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Discovered {new Date(vuln.discovered_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${vuln.severity === "Critical" ? "bg-red-500/10 text-red-600" :
-                          vuln.severity === "High" ? "bg-orange-500/10 text-orange-600" :
-                            vuln.severity === "Medium" ? "bg-yellow-500/10 text-yellow-600" :
-                              "bg-green-500/10 text-green-600"
-                          }`}>
-                          {vuln.severity}
-                        </span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${vuln.status === "Patched" ? "bg-green-500/10 text-green-600" :
-                          vuln.status === "Triaged" ? "bg-blue-500/10 text-blue-600" :
-                            "bg-gray-500/10 text-gray-600"
-                          }`}>
-                          {vuln.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="relative">
+                  {vulnerabilities.length > 0 && (
+                    <div className="absolute left-[9px] top-0 bottom-0 w-0.5 bg-border" />
+                  )}
+                  <div className="space-y-6">
+                    {vulnerabilities
+                      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+                      .slice(0, 10)
+                      .map((vuln) => (
+                        <div key={vuln.id} className="relative pl-8">
+                          <div className={`absolute left-0 top-1 w-5 h-5 rounded-full border-2 ${
+                            vuln.status?.toLowerCase() === "patched" ? "bg-green-500 border-green-600" :
+                            vuln.status?.toLowerCase() === "triaged" ? "bg-blue-500 border-blue-600" :
+                            vuln.status?.toLowerCase() === "ignored" ? "bg-gray-500 border-gray-600" :
+                              "bg-orange-500 border-orange-600"
+                          }`} />
+                          <div className="space-y-1">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold text-foreground">{vuln.cve_id}</p>
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                vuln.status?.toLowerCase() === "patched" ? "bg-green-500/10 text-green-600" :
+                                vuln.status?.toLowerCase() === "triaged" ? "bg-blue-500/10 text-blue-600" :
+                                vuln.status?.toLowerCase() === "ignored" ? "bg-gray-500/10 text-gray-600" :
+                                  "bg-orange-500/10 text-orange-600"
+                              }`}>
+                                {mapStatus(vuln.status)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                              <span className={`px-2 py-0.5 text-xs rounded ${
+                                vuln.severity === "Critical" ? "bg-red-500/10 text-red-600" :
+                                vuln.severity === "High" ? "bg-orange-500/10 text-orange-600" :
+                                vuln.severity === "Medium" ? "bg-yellow-500/10 text-yellow-600" :
+                                  "bg-blue-500/10 text-blue-600"
+                              }`}>
+                                {vuln.severity}
+                              </span>
+                              <span>•</span>
+                              <span>Updated {new Date(vuln.updated_at).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
                   {vulnerabilities.length === 0 && (
                     <p className="text-center text-muted-foreground py-8">No vulnerabilities yet</p>
                   )}
-                  {vulnerabilities.length > 10 && (
-                    <div className="text-center pt-4">
-                      <Link href="/triage">
-                        <Button variant="outline">View All Vulnerabilities</Button>
-                      </Link>
-                    </div>
-                  )}
                 </div>
+                {vulnerabilities.length > 10 && (
+                  <div className="text-center pt-6 border-t mt-6">
+                    <Link href="/triage">
+                      <Button variant="outline">View All Vulnerabilities</Button>
+                    </Link>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

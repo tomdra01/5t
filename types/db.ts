@@ -51,18 +51,19 @@ export interface VulnerabilityRow {
   id: string
   component_id: string
   cve_id: string
-  severity: string | null
-  status: string | null
-  assigned_to: string | null
-  remediation_notes: string | null
+  description?: string | null
+  severity: string
+  status: string
+  cvss_score?: number | null
+  nvd_severity?: string | null
+  nvd_score?: number | null
+  source?: string | null
   discovered_at: string
   reporting_deadline: string
-  updated_at: string | null
-  // Hybrid Scanning additions
-  nvd_severity: string | null
-  nvd_score: number | null
-  source: string | null
-  fixed_at: string | null
+  fixed_at?: string | null
+  updated_at: string
+  assigned_to: string | null
+  remediation_notes: string | null
 }
 
 export interface RemediationMilestoneRow {

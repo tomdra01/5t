@@ -26,7 +26,6 @@ export class SbomRepository {
         uploaded_by: uploadedBy,
         component_count: componentCount,
         file_hash: fileHash || null,
-        created_at: new Date().toISOString(),
       })
       .select()
       .single()
