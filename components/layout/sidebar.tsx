@@ -23,7 +23,7 @@ export function Sidebar() {
         {/* Logo */}
         <Link href="/" className="flex items-center justify-center">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-sm border border-border/40 overflow-hidden p-2.5">
-            <img src="/logo.png" alt="5teen" className="h-full w-full object-contain" />
+            <img src="/logo.jpg" alt="5teen" className="h-full w-full object-contain" />
           </div>
         </Link>
 
