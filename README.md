@@ -1,231 +1,87 @@
-# 5teen - Cyber Resilience Act (CRA) Compliance Platform
+# 5teen - CRA Compliance Management Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![Supabase](https://img.shields.io/badge/Supabase-Database-green?style=for-the-badge&logo=supabase)](https://supabase.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
+**Secure Software Development (E2025) - Case Study**
+*Developed by Tomas Dracka*
 
-**Secure Software Development (E2025) - Agramkow Case Study**  
-*Developed by Tomas Dracka (18.11.2025)*
+## Overview
 
----
+5teen is a compliance management platform built to address the requirements of the European Cyber Resilience Act (CRA). While SBOM generation tools tell you what's in your software, they don't help you manage the vulnerabilities found within those components. This platform bridges that gap by automating vulnerability tracking, deadline management, and compliance reporting.
 
-## 📌 Project Overview
+The CRA requires software manufacturers to maintain a documented, repeatable secure development process. Article 15 mandates reporting actively exploited vulnerabilities within 24 hours of discovery. Article 14 requires continuous vulnerability management with evidence of remediation efforts. Most organizations lack the infrastructure to meet these requirements systematically. 5teen provides that infrastructure.
 
-The European **Cyber Resilience Act (CRA)** mandates that software manufacturers maintain a **repeatable, documented secure development process**—not just ship secure products. This platform addresses the compliance gap by automating vulnerability tracking, deadline management, and audit-ready reporting.
+## What It Does
 
-### The Challenge
+The platform accepts SBOM files in CycloneDX or SPDX JSON format. Upon upload, it scans each component against the OSV.dev vulnerability database. When vulnerabilities are discovered, the system creates tracking records with automatically calculated deadlines based on CRA requirements. The default deadline is 24 hours from discovery, matching Article 15's reporting timeline.
 
-While SBOM generation tools are becoming standard, they only show *what's inside* the software. Most organizations lack systems to:
-- **Article 15 Compliance**: Meet the 24-hour reporting requirement for discovered vulnerabilities
-- **Article 14 & Annex I**: Demonstrate continuous vulnerability management and remediation evidence
-- **Audit Readiness**: Transform vulnerability data into regulatory-compliant documentation
+Each vulnerability moves through a defined lifecycle: discovered, in remediation, resolved, or ignored. The system tracks status changes, assigns ownership to team members, and monitors whether deadlines are met. When a vulnerability passes its reporting deadline without being addressed, it's automatically marked as ignored with a timestamped audit trail.
 
-**5teen** solves this by providing an automated vulnerability lifecycle management platform.
+The platform provides real-time visibility into your compliance posture through a dashboard showing key metrics: total vulnerabilities, those actively being remediated, critical severity counts, and compliance scores based on deadline adherence. Analytics charts track vulnerability trends over time, severity distributions, and average remediation durations.
 
----
+When components are updated in subsequent SBOM uploads, the system performs intelligent version comparison. If a component version increases, any open vulnerabilities associated with the old version are automatically resolved. This automates a significant portion of the remediation tracking burden.
 
-## 🚀 Core Features
+Compliance reports can be generated with a single click. These reports summarize your vulnerability management efforts in a format suitable for regulatory documentation, including statistics on discovery rates, remediation times, and deadline adherence percentages.
 
-### 🛡️ Vulnerability Management
-- **Automated OSV.dev Scanning**: Instant vulnerability detection upon SBOM upload
-- **CVSS-Based Severity Mapping**: Accurate risk assessment using industry standards
-- **24-Hour Deadline Tracking**: Automated CRA Article 15 compliance
-- **Intelligent Version Comparison**: Auto-resolves vulnerabilities when components are upgraded
-- **Lifecycle Workflow**: Track vulnerabilities through Open → Triaged → Patched → Ignored states
+## Technical Architecture
 
-### 📦 SBOM Processing
-- **Multi-Format Support**: CycloneDX and SPDX JSON formats
-- **Version Control**: Track software changes across releases
-- **Component Inventory**: Centralized view of dependencies, licenses, and authors
-- **Delta Detection**: Identify new, upgraded, downgraded, and unchanged components
+The application is built with Next.js 16 using the App Router architecture and React Server Components. The backend uses Supabase for PostgreSQL database management with Row Level Security policies enforcing multi-tenant data isolation. Server Actions handle all data mutations with Zod validation schemas ensuring type-safe inputs.
 
-### 📋 Compliance & Reporting
-- **Annex I Summary Reports**: One-click regulatory compliance reports
-- **Real-Time KPIs**: Compliance score, remediation time, deadline adherence
-- **Audit Trails**: Immutable remediation milestone tracking
-- **Analytics Dashboard**: Vulnerability trends, severity distribution, time-to-fix metrics
+The codebase follows a clean architecture pattern with clear separation of concerns. Domain models define the core business entities. Services contain business logic and orchestrate operations across multiple repositories. Repositories handle all database access, abstracting the data layer from business logic. Validators use Zod schemas to ensure data integrity at the boundaries.
 
-### 🔔 Notification System
-- **Email Alerts**: Resend integration for deadline warnings and new CVE notifications
-- **Assignee Management**: Workload balancing across team members
-- **CRA-Compliant Messaging**: Article 15 reporting requirements baked into notifications
+Authentication uses Supabase Auth with JWT tokens. Middleware protects routes, ensuring only authenticated users access the application. Database RLS policies provide defense in depth, preventing unauthorized data access even if application-level checks fail.
 
----
+## Key Features
 
-## 🏗️ Architecture
+**Vulnerability Management:** Automatic scanning via OSV.dev API upon SBOM upload. CVSS-based severity classification. Status workflow tracking from discovery through resolution. Automatic deadline calculation and monitoring. Team member assignment for workload distribution.
 
-### Tech Stack
-- **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui
-- **Backend**: Next.js Server Actions, Supabase (PostgreSQL)
-- **Security**: Row Level Security (RLS), JWT authentication, middleware-based auth
-- **Integrations**: OSV.dev API, NVD API (optional), Resend (email)
-- **Validation**: Zod schemas for type-safe input validation
-- **Error Handling**: Custom error classes, React Error Boundaries
+**SBOM Processing:** Multi-format support for CycloneDX and SPDX JSON. Version control tracking software evolution over time. Component inventory with license and author information. Delta detection identifying new, upgraded, downgraded, and unchanged components between versions.
 
-### Professional Code Architecture
-\`\`\`
-lib/
-├── models/               # TypeScript domain models
-│   ├── vulnerability.ts
-│   ├── component.ts
-│   └── sbom.ts
-│
-├── services/             # Business logic layer
-│   ├── sbom.service.ts
-│   ├── vulnerability-scanner.service.ts
-│   └── notification.service.ts
-│
-├── repositories/         # Data access layer
-│   ├── vulnerability.repository.ts
-│   ├── component.repository.ts
-│   └── sbom.repository.ts
-│
-├── validators/           # Zod validation schemas
-│   ├── sbom.ts
-│   ├── vulnerability.ts
-│   └── settings.ts
-│
-└── errors/               # Custom error classes
-    └── index.ts
-\`\`\`
+**Compliance Reporting:** Annex I summary reports generated on demand. Real-time KPIs including compliance scores and remediation times. Audit trails with immutable milestone logging. Analytics visualizations for vulnerability trends and severity distributions.
 
-### Database Schema
-**Tables:**
-1. `organizations` - Multi-tenant organization structure
-2. `organization_members` - User-organization relationships
-3. `projects` - Software projects with SBOM tracking
-4. `sbom_versions` - Versioned SBOM snapshots
-5. `sbom_components` - Component inventory with PURLs
-6. `vulnerabilities` - CVE tracking with deadlines and assignment
-7. `remediation_milestones` - Audit trail of vulnerability lifecycle
-8. `compliance_reports` - Generated compliance reports
-9. `user_settings` - User preferences (NVD API keys, scanning options)
-10. `profiles` - Public user profiles (synced with auth.users)
+**Automation:** Automatic status changes for past-deadline vulnerabilities. Automatic resolution when component versions are upgraded. Automated CVSS scoring and severity mapping. Optional integration with NVD API for enhanced vulnerability details.
 
-**Security:**
-- Advanced Row Level Security (RLS) on all tables
-- Helper functions: `is_org_owner()`, `can_access_project()`, `log_remediation_milestone()`
-- Optimized indexes on foreign keys and temporal columns
-- `SECURITY DEFINER` functions with hardened `search_path`
+## Setup
 
----
+You'll need Node.js v18 or higher and a Supabase project. Email notifications require a Resend API key, though this is optional and the system functions without it. Enhanced vulnerability scoring can use an NVD API key, also optional.
 
-## ⚙️ Getting Started
+Clone the repository and install dependencies with npm install. Copy the .env.example file to .env.local and configure your environment variables. At minimum, you need NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY from your Supabase project settings.
 
-### Prerequisites
-- Node.js v18+
-- Supabase Project
-- (Optional) Resend API key for email notifications
-- (Optional) NVD API key for enhanced CVSS scoring
+Database setup requires running the migration files in the supabase/migrations directory. Execute them in numerical order through the Supabase SQL Editor, or use the Supabase CLI with `npx supabase db reset` if you have the CLI configured locally.
 
-### Installation
+For development, run `npm run dev` and open http://localhost:3000. For production deployment, build with `npm run build` and start with `npm start`. The application is compatible with Vercel, Netlify, or any platform supporting Next.js.
 
-\`\`\`bash
-# Clone repository
-git clone https://github.com/tomdra01/5t.git
-cd 5t
+## Environment Configuration
 
-# Install dependencies
-npm install
+```env
+# Required - Supabase connection
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-# Configure environment variables
-cp .env.example .env.local
-\`\`\`
-
-### Environment Variables
-\`\`\`env
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-
-# Email Notifications (Optional)
+# Optional - Email notifications
 RESEND_API_KEY=your_resend_api_key
 NOTIFICATION_FROM_EMAIL=security@yourdomain.com
 
-# NVD API (Optional)
+# Optional - Enhanced vulnerability data
 NVD_API_KEY=your_nvd_api_key
-\`\`\`
+```
 
-### Database Setup
-\`\`\`bash
-# Run migrations in Supabase SQL Editor
-# Execute migrations 001-007 in order
+## Database Schema
 
-# Or use Supabase CLI
-npx supabase db reset
-\`\`\`
+The schema consists of ten main tables. Organizations provide multi-tenant structure with organization_members defining user-organization relationships. Projects belong to organizations and contain SBOM versions. Each SBOM version snapshot links to components, which in turn link to vulnerabilities. Remediation milestones create an audit trail of vulnerability lifecycle events. Compliance reports store generated documentation. User settings manage preferences like API keys. Profiles mirror auth.users for public profile information.
 
-### Development
-\`\`\`bash
-npm run dev
-# Open http://localhost:3000
-\`\`\`
+All tables have Row Level Security policies enforcing access control at the database level. Helper functions like can_access_project() and is_org_owner() encapsulate authorization logic. Indexes optimize common query patterns, particularly for foreign key relationships and temporal queries.
 
-### Production Build
-\`\`\`bash
-npm run build
-npm start
-\`\`\`
+## CRA Compliance Coverage
 
----
+The platform addresses Article 15's 24-hour reporting requirement through automated deadline tracking and notifications. Article 14's continuous vulnerability monitoring is satisfied through the lifecycle management system with full audit trails. Annex I compliance reporting is handled via one-click report generation. Email notifications ensure timely response to critical vulnerabilities. The immutable remediation milestone logs provide evidence for regulatory audits.
 
-## 📜 CRA Compliance Coverage
+## Code Quality Standards
 
-- [x] **Article 15**: Automated 24-hour discovery-to-deadline tracking
-- [x] **Article 14**: Continuous vulnerability monitoring and documentation
-- [x] **Annex I**: Structured compliance report generation
-- [x] **Email Notifications**: Timely alerts for critical vulnerabilities
-- [x] **Audit Trails**: Immutable remediation milestone logs
-- [x] **Multi-Format SBOM**: CycloneDX & SPDX support
+The codebase maintains 100% TypeScript coverage with no any types. All external inputs pass through Zod validation schemas. Custom error classes provide meaningful error messages while React Error Boundaries handle runtime failures gracefully. The service/repository pattern separates business logic from data access. Middleware authentication guards all protected routes. Database RLS provides defense in depth for data security.
 
----
-
-## 🔒 Security & Code Quality
-
-### Security Features
-- **Middleware Authentication**: Active auth guard on all protected routes
-- **Row Level Security**: Database-level access control
-- **Input Validation**: Zod schemas on all server actions
-- **Error Boundaries**: Production-ready error handling
-
-### Code Quality Standards
-- ✅ **Clean Architecture**: Service/repository pattern separation
-- ✅ **Type Safety**: 100% TypeScript, zero `any` types
-- ✅ **Input Validation**: Zod schemas for all external inputs
-- ✅ **Error Handling**: Custom error classes and React boundaries
-- ✅ **Professional Structure**: Models, services, repositories, validators
-- ✅ **Production Ready**: Proper logging, error handling, security
-
----
-
-## 📊 Metrics & KPIs
-
-The platform tracks:
-- **Compliance Score**: Percentage of vulnerabilities remediated within deadlines
-- **Average Remediation Time**: Time from discovery to patching
-- **Deadline Adherence**: Percentage of vulnerabilities meeting CRA timelines
-- **Severity Distribution**: Critical/High/Medium/Low breakdown
-- **Component Inventory**: Total dependencies tracked across projects
-
----
-
-## 🎯 Project Goals Achieved
-
-1. ✅ **Automated Vulnerability Discovery**: OSV.dev integration with CVSS mapping
-2. ✅ **CRA Article 15 Compliance**: 24-hour deadline automation
-3. ✅ **Audit-Ready Reports**: One-click Annex I summaries
-4. ✅ **Multi-Tenant Support**: Organizations, projects, and team management
-5. ✅ **Professional Architecture**: Service/repository patterns, validation, error handling
-6. ✅ **Production Readiness**: Middleware auth, error boundaries, type safety
-7. ✅ **Email Notifications**: Resend integration for compliance alerts
-
----
-
-## 📝 License
+## License
 
 MIT
 
 ---
 
-*This project was completed as an individual case study for the Secure Software Development course (E2025) at SDU.*
+*This project demonstrates a production-ready approach to CRA compliance automation, completed as part of the Secure Software Development course at SDU.*
