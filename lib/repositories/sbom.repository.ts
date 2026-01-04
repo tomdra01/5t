@@ -15,7 +15,8 @@ export class SbomRepository {
     projectId: string,
     versionNumber: number,
     uploadedBy: string,
-    componentCount: number
+    componentCount: number,
+    fileHash?: string
   ): Promise<SbomVersion | null> {
     const { data, error } = await this.supabase
       .from("sbom_versions")
@@ -24,6 +25,7 @@ export class SbomRepository {
         version_number: versionNumber,
         uploaded_by: uploadedBy,
         component_count: componentCount,
+        file_hash: fileHash || null,
         created_at: new Date().toISOString(),
       })
       .select()
@@ -34,6 +36,27 @@ export class SbomRepository {
       return null
     }
     return data as SbomVersion
+  }
+
+  async findVersionByHash(projectId: string, fileHash: string): Promise<SbomVersion | null> {
+    const { data, error } = await this.supabase
+      .from("sbom_versions")
+      .select("*")
+      .eq("project_id", projectId)
+      .eq("file_hash", fileHash)
+      .single()
+
+    if (error) return null
+    return data as SbomVersion
+  }
+
+  async updateVersionTimestamp(versionId: string): Promise<boolean> {
+    const { error } = await this.supabase
+      .from("sbom_versions")
+      .update({ uploaded_at: new Date().toISOString() })
+      .eq("id", versionId)
+
+    return !error
   }
 
   async findVersionById(id: string): Promise<SbomVersion | null> {

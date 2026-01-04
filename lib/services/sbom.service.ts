@@ -37,6 +37,19 @@ export class SbomService {
       }
     }
 
+    const fileHash = await this.hashContent(fileContent)
+    const existingVersion = await this.sbomRepo.findVersionByHash(projectId, fileHash)
+
+    if (existingVersion) {
+      await this.sbomRepo.updateVersionTimestamp(existingVersion.id)
+      return {
+        success: true,
+        message: "Identical SBOM already uploaded. Timestamps updated.",
+        componentsInserted: 0,
+        vulnerabilitiesInserted: 0,
+      }
+    }
+
     const latestVersionNumber = await this.sbomRepo.getLatestVersion(projectId)
     const newVersionNumber = latestVersionNumber + 1
 
@@ -44,7 +57,8 @@ export class SbomService {
       projectId,
       newVersionNumber,
       userId,
-      components.length
+      components.length,
+      fileHash
     )
 
     if (!sbomVersion) {
@@ -218,5 +232,13 @@ export class SbomService {
     }
 
     return undefined
+  }
+
+  private async hashContent(content: string): Promise<string> {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(content)
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, "0")).join("")
   }
 }

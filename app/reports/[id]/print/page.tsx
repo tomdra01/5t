@@ -90,6 +90,8 @@ export default function ReportPrintPage() {
     const patchedCount = vulnerabilities.filter((v) => v.status === "Patched").length
     const openCount = vulnerabilities.filter((v) => v.status !== "Patched").length
 
+    const upgradedComponents = components.filter((c) => c.previous_version && c.previous_version !== c.version)
+
     // Compliance calculations
     const article14Pass = overdueCount === 0 // No overdue vulnerabilities
     const article15Pass = vulnerabilities.every((v) => v.assigned_to !== null) // All assigned
@@ -387,6 +389,40 @@ export default function ReportPrintPage() {
                         </p>
                     )}
                 </section>
+
+                {/* Component Version Upgrades */}
+                {upgradedComponents.length > 0 && (
+                    <section className="mb-10">
+                        <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
+                            Component Version Upgrades
+                        </h2>
+                        <p className="text-sm text-gray-600 mb-4">
+                            Components upgraded to resolve vulnerabilities
+                        </p>
+                        <table className="w-full border-collapse border border-gray-200 text-sm">
+                            <thead>
+                                <tr className="bg-gray-100 border-b border-gray-300">
+                                    <th className="text-left p-2 font-semibold text-gray-900">Component</th>
+                                    <th className="text-left p-2 font-semibold text-gray-900">Previous Version</th>
+                                    <th className="text-left p-2 font-semibold text-gray-900">Current Version</th>
+                                    <th className="text-left p-2 font-semibold text-gray-900">Updated</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {upgradedComponents.map((comp) => (
+                                    <tr key={comp.id} className="border-b border-gray-200">
+                                        <td className="p-2 font-semibold text-gray-900">{comp.name}</td>
+                                        <td className="p-2 text-gray-600">{comp.previous_version}</td>
+                                        <td className="p-2 text-green-700 font-semibold">{comp.version}</td>
+                                        <td className="p-2 text-gray-700 text-xs">
+                                            {new Date(comp.added_at).toLocaleDateString()}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </section>
+                )}
 
                 {/* Compliance Statement */}
                 <section className="mb-10">
