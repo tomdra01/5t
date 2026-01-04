@@ -1,7 +1,5 @@
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export interface NotificationPayload {
   to: string
   subject: string
@@ -19,6 +17,7 @@ export class NotificationService {
     }
 
     try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
         from: process.env.NOTIFICATION_FROM_EMAIL || "security@5teen.app",
         to: payload.to,
