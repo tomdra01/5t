@@ -14,13 +14,17 @@ interface DeadlineTimerProps {
 export function DeadlineTimer({ vulnerability }: DeadlineTimerProps) {
   const [timeRemaining, setTimeRemaining] = useState(calculateDeadlineRemaining(vulnerability.reportingDeadline))
 
+  const isResolved = vulnerability.status === "resolved"
+
   useEffect(() => {
+    if (isResolved) return
+
     const interval = setInterval(() => {
       setTimeRemaining(calculateDeadlineRemaining(vulnerability.reportingDeadline))
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [vulnerability.reportingDeadline])
+  }, [vulnerability.reportingDeadline, isResolved])
 
   const { hours, minutes, seconds, isOverdue, isCritical } = timeRemaining
 
@@ -28,11 +32,13 @@ export function DeadlineTimer({ vulnerability }: DeadlineTimerProps) {
     <Card
       className={cn(
         "rounded-3xl border transition-all hover:shadow-lg",
-        isOverdue
-          ? "border-destructive/50 bg-destructive/5"
-          : isCritical
-            ? "border-primary/50 bg-primary/5"
-            : "border-border/50 bg-card/50",
+        isResolved
+          ? "border-green-500/50 bg-green-500/5"
+          : isOverdue
+            ? "border-red-500/50 bg-red-500/5"
+            : isCritical
+              ? "border-primary/50 bg-primary/5"
+              : "border-border/50 bg-card/50",
       )}
     >
       <CardContent className="p-4">
@@ -40,11 +46,13 @@ export function DeadlineTimer({ vulnerability }: DeadlineTimerProps) {
           <div
             className={cn(
               "flex h-12 w-12 items-center justify-center rounded-2xl",
-              isOverdue
-                ? "bg-destructive/10 text-destructive"
-                : isCritical
-                  ? "bg-primary/10 text-primary animate-pulse-amber"
-                  : "bg-muted text-muted-foreground",
+              isResolved
+                ? "bg-green-500/10 text-green-600"
+                : isOverdue
+                  ? "bg-red-500/10 text-red-600"
+                  : isCritical
+                    ? "bg-primary/10 text-primary animate-pulse-amber"
+                    : "bg-muted text-muted-foreground",
             )}
           >
             {isOverdue ? <AlertTriangle className="h-5 w-5" /> : <Clock className="h-5 w-5" />}
@@ -59,12 +67,20 @@ export function DeadlineTimer({ vulnerability }: DeadlineTimerProps) {
             <div
               className={cn(
                 "text-lg font-bold tabular-nums",
-                isOverdue ? "text-destructive" : isCritical ? "text-primary" : "text-foreground",
+                isResolved
+                  ? "text-green-600"
+                  : isOverdue
+                    ? "text-red-600"
+                    : isCritical
+                      ? "text-primary"
+                      : "text-foreground",
               )}
             >
-              {isOverdue
-                ? "OVERDUE"
-                : `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`}
+              {isResolved
+                ? "MET"
+                : isOverdue
+                  ? "NOT MET"
+                  : `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`}
             </div>
             <p className="text-xs text-muted-foreground">CRA Art. 14</p>
           </div>

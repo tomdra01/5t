@@ -1,18 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams } from "next/navigation"
 import { createClient } from "@/utils/supabase/client"
-import type { ProjectRow, VulnerabilityRow, SbomComponentRow } from "@/types/db"
-import { ArrowLeft, FileDown, CheckCircle, XCircle, AlertTriangle } from "lucide-react"
+import type { ProjectRow, VulnerabilityRow, SbomComponentRow, OrganizationRow } from "@/types/db"
+import { ArrowLeft, FileDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 export default function ReportPrintPage() {
     const params = useParams()
-    const router = useRouter()
     const reportId = params.id as string
     const [report, setReport] = useState<any>(null)
     const [project, setProject] = useState<ProjectRow | null>(null)
+    const [organization, setOrganization] = useState<OrganizationRow | null>(null)
     const [vulnerabilities, setVulnerabilities] = useState<VulnerabilityRow[]>([])
     const [components, setComponents] = useState<SbomComponentRow[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -36,6 +36,15 @@ export default function ReportPrintPage() {
                     .eq("id", reportData.project_id)
                     .single()
                 setProject(projectData)
+
+                if (projectData?.organization_id) {
+                    const { data: orgData } = await supabase
+                        .from("organizations")
+                        .select("*")
+                        .eq("id", projectData.organization_id)
+                        .single()
+                    setOrganization(orgData)
+                }
 
                 const { data: componentsData } = await supabase
                     .from("sbom_components")
@@ -119,74 +128,95 @@ export default function ReportPrintPage() {
             {/* Report Document */}
             <div className="report-container max-w-[210mm] mx-auto p-[20mm] bg-white">
                 {/* Header */}
-                <div className="text-center mb-12 pb-6 border-b-2 border-gray-900">
-                    <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">
-                        CRA Compliance Report
-                    </h1>
-                    <p className="text-lg text-gray-600 font-medium">
-                        EU Cyber Resilience Act - Annex I Documentation
-                    </p>
+                <div className="text-center mb-12 pb-8 border-b-4 border-gray-900">
+                    <div className="mb-4">
+                        <h1 className="text-5xl font-bold text-gray-900 mb-3 tracking-tight uppercase">
+                            CRA Compliance Report
+                        </h1>
+                        <p className="text-xl text-gray-700 font-semibold tracking-wide">
+                            European Union Cyber Resilience Act
+                        </p>
+                        <p className="text-lg text-gray-600 font-medium mt-1">
+                            Annex I Documentation
+                        </p>
+                    </div>
+                    <div className="mt-6 pt-4 border-t border-gray-300">
+                        <p className="text-sm text-gray-600 uppercase tracking-wider">
+                            Confidential Regulatory Compliance Documentation
+                        </p>
+                    </div>
                 </div>
 
                 {/* Report Metadata */}
-                <div className="mb-10 grid grid-cols-2 gap-6">
-                    <div>
-                        <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Project Name</p>
-                        <p className="text-xl font-semibold text-gray-900">{project.name}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Report Date</p>
-                        <p className="text-xl font-semibold text-gray-900">
-                            {new Date(report.created_at).toLocaleDateString("en-US", {
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                            })}
-                        </p>
-                    </div>
-                    <div>
-                        <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Report Type</p>
-                        <p className="text-xl font-semibold text-gray-900">{report.report_type || "CRA Compliance"}</p>
-                    </div>
-                    <div>
-                        <p className="text-xs uppercase tracking-wider text-gray-500 font-semibold mb-1">Project ID</p>
-                        <p className="text-xl font-mono text-gray-700">{project.id.slice(0, 16)}...</p>
+                <div className="mb-12 p-6 bg-gray-50 border border-gray-300">
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="border-b border-gray-300 pb-3">
+                            <p className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-2">Project Name</p>
+                            <p className="text-lg font-bold text-gray-900">{project.name}</p>
+                        </div>
+                        <div className="border-b border-gray-300 pb-3">
+                            <p className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-2">Report Date</p>
+                            <p className="text-lg font-bold text-gray-900">
+                                {new Date(report.created_at).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                })}
+                            </p>
+                        </div>
+                        <div className="border-b border-gray-300 pb-3">
+                            <p className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-2">Report Type</p>
+                            <p className="text-lg font-bold text-gray-900">{report.report_type || "Annex I Summary"}</p>
+                        </div>
+                        <div className="border-b border-gray-300 pb-3">
+                            <p className="text-xs uppercase tracking-wider text-gray-500 font-bold mb-2">Organization</p>
+                            <p className="text-lg font-bold text-gray-900">{organization?.name || "Independent"}</p>
+                        </div>
                     </div>
                 </div>
 
                 {/* Compliance Scorecard */}
-                <section className="mb-10 p-6 bg-gray-50 border-2 border-gray-900 rounded-lg">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Compliance Scorecard</h2>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded">
-                            <div>
-                                <p className="font-semibold text-gray-900">Article 14 Compliance</p>
-                                <p className="text-sm text-gray-600">24-hour vulnerability reporting</p>
+                <section className="mb-10 p-6 bg-white border-2 border-gray-900">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-2 border-b-2 border-gray-300">Compliance Assessment</h2>
+                    <div className="space-y-4">
+                        <div className="flex items-start justify-between p-4 bg-gray-50 border-l-4 border-gray-900">
+                            <div className="flex-1">
+                                <p className="font-bold text-gray-900 text-lg mb-1">Article 14: Vulnerability Reporting to ENISA</p>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                    Manufacturers must report actively exploited vulnerabilities to the European Union Agency for Cybersecurity (ENISA) within 24 hours of awareness, including detailed technical information and potential impact assessment.
+                                </p>
+                                <p className="text-sm font-semibold mt-2 text-gray-900">
+                                    Status: {article14Pass ? (
+                                        <span className="text-green-700">COMPLIANT - All reporting deadlines met</span>
+                                    ) : (
+                                        <span className="text-red-700">NON-COMPLIANT - Overdue reports identified</span>
+                                    )}
+                                </p>
                             </div>
-                            {article14Pass ? (
-                                <CheckCircle className="w-10 h-10 text-green-600" />
-                            ) : (
-                                <XCircle className="w-10 h-10 text-red-600" />
-                            )}
                         </div>
-                        <div className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded">
-                            <div>
-                                <p className="font-semibold text-gray-900">Article 15 Compliance</p>
-                                <p className="text-sm text-gray-600">Coordinated disclosure practices</p>
+                        <div className="flex items-start justify-between p-4 bg-gray-50 border-l-4 border-gray-900">
+                            <div className="flex-1">
+                                <p className="font-bold text-gray-900 text-lg mb-1">Article 15: Coordinated Vulnerability Disclosure</p>
+                                <p className="text-sm text-gray-700 leading-relaxed">
+                                    Manufacturers must handle vulnerabilities in accordance with coordinated disclosure practices, ensuring appropriate ownership assignment, severity classification, and timely remediation of identified security issues.
+                                </p>
+                                <p className="text-sm font-semibold mt-2 text-gray-900">
+                                    Status: {article15Pass ? (
+                                        <span className="text-green-700">COMPLIANT - All vulnerabilities assigned</span>
+                                    ) : (
+                                        <span className="text-red-700">NON-COMPLIANT - Unassigned vulnerabilities exist</span>
+                                    )}
+                                </p>
                             </div>
-                            {article15Pass ? (
-                                <CheckCircle className="w-10 h-10 text-green-600" />
-                            ) : (
-                                <XCircle className="w-10 h-10 text-red-600" />
-                            )}
                         </div>
                     </div>
-                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                        <p className="text-sm font-medium text-blue-900">
+                    <div className="mt-6 p-4 bg-gray-100 border border-gray-400">
+                        <p className="text-sm font-bold text-gray-900 mb-1">Overall Compliance Status</p>
+                        <p className="text-sm text-gray-700">
                             {article14Pass && article15Pass ? (
-                                <>✓ Full Compliance - All requirements met</>
+                                <>The organization has achieved full compliance with CRA Articles 14 and 15 as of the date of this report. All regulatory requirements for vulnerability reporting and coordinated disclosure have been met.</>
                             ) : (
-                                <>⚠ Action Required - Review non-compliant items below</>
+                                <>The organization is actively working to achieve full compliance with CRA requirements. Immediate action is required to address identified deficiencies and ensure regulatory conformity.</>
                             )}
                         </p>
                     </div>
@@ -197,21 +227,18 @@ export default function ReportPrintPage() {
                     <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
                         Executive Summary
                     </h2>
-                    <div className="space-y-4 text-gray-700 leading-relaxed">
+                    <div className="space-y-4 text-gray-700 leading-relaxed text-justify">
                         <p>
-                            This report shows {project.name}'s compliance with EU Cyber Resilience Act requirements.
-                            All vulnerabilities are tracked and assigned with target resolution dates.
+                            This compliance report provides a comprehensive assessment of {project.name}'s adherence to the European Union Cyber Resilience Act (CRA) requirements, specifically addressing Annex I documentation standards for products with digital elements. The assessment encompasses vulnerability management practices, coordinated disclosure procedures, and continuous security monitoring capabilities as mandated by the regulation.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Risk Profile:</strong> {components.length} components tracked with {vulnerabilities.length} vulnerabilities.
-                            {patchedCount} resolved, {openCount} in progress.
+                            The current security posture indicates that {components.length} software components are actively monitored within the project scope, with {vulnerabilities.length} total vulnerabilities identified through systematic scanning processes. Of these vulnerabilities, {patchedCount} have been successfully remediated and {openCount} remain under active investigation and resolution. All identified vulnerabilities have been classified according to severity levels and assigned appropriate reporting deadlines in accordance with Article 14 requirements.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Compliance:</strong> {article14Pass && article15Pass ? (
-                                <>CRA Articles 14 & 15 requirements met.</>
+                            {article14Pass && article15Pass ? (
+                                <>The organization has achieved full compliance with CRA Articles 14 and 15. All actively exploited vulnerabilities have been reported to ENISA within the mandated 24-hour timeframe, and coordinated vulnerability disclosure practices have been properly implemented with appropriate ownership assignments for all security issues.</>
                             ) : (
-                                <>Working to resolve {!article14Pass ? "overdue deadlines" : ""} {!article14Pass && !article15Pass ? "and" : ""}
-                                    {!article15Pass ? "unassigned vulnerabilities" : ""}.</>
+                                <>The organization is actively working toward full compliance with CRA requirements. {!article14Pass ? "Current efforts are focused on addressing vulnerabilities that have exceeded the 24-hour reporting deadline as specified in Article 14." : ""} {!article14Pass && !article15Pass ? "Additionally, " : ""}{!article15Pass ? "The organization is in the process of ensuring all vulnerabilities are assigned to designated security personnel in accordance with Article 15 coordinated disclosure practices." : ""}</>
                             )}
                         </p>
                     </div>
@@ -238,14 +265,13 @@ export default function ReportPrintPage() {
                     <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
                         Remediation Roadmap
                     </h2>
-                    <p className="text-sm text-gray-600 mb-4">
-                        Target resolution dates for open vulnerabilities
+                    <p className="text-sm text-gray-700 mb-4 leading-relaxed text-justify">
+                        The following remediation schedule outlines target resolution dates for all outstanding vulnerabilities, prioritized by severity level and regulatory reporting deadlines. Each vulnerability has been assigned to qualified security personnel responsible for investigation, remediation, and verification of fixes.
                     </p>
                     {sortedByDeadline.length === 0 ? (
-                        <div className="p-6 bg-green-50 border border-green-200 rounded-lg text-center">
-                            <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                            <p className="font-semibold text-green-900">All vulnerabilities resolved</p>
-                            <p className="text-sm text-green-700">No open security issues</p>
+                        <div className="p-6 bg-gray-50 border-2 border-gray-300 rounded">
+                            <p className="font-semibold text-gray-900 mb-2">Current Status: All Vulnerabilities Resolved</p>
+                            <p className="text-sm text-gray-700">As of the date of this report, no outstanding security vulnerabilities require remediation. All previously identified issues have been successfully addressed and verified through appropriate testing procedures.</p>
                         </div>
                     ) : (
                         <div className="space-y-2">
@@ -396,8 +422,8 @@ export default function ReportPrintPage() {
                         <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
                             Component Version Upgrades
                         </h2>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Components upgraded to resolve vulnerabilities
+                        <p className="text-sm text-gray-700 mb-4 leading-relaxed text-justify">
+                            The following table documents software component version upgrades performed as part of vulnerability remediation activities. These upgrades represent proactive security measures taken to address known vulnerabilities and maintain the security posture of the product throughout its lifecycle.
                         </p>
                         <table className="w-full border-collapse border border-gray-200 text-sm">
                             <thead>
@@ -429,15 +455,15 @@ export default function ReportPrintPage() {
                     <h2 className="text-2xl font-bold text-gray-900 mb-4 pb-2 border-b border-gray-900">
                         CRA Compliance Statement
                     </h2>
-                    <div className="space-y-4 text-gray-700 leading-relaxed">
+                    <div className="space-y-4 text-gray-700 leading-relaxed text-justify">
                         <p>
-                            <strong className="text-gray-900">Article 14:</strong> All vulnerabilities documented for ENISA reporting requirements.
+                            <strong className="text-gray-900">Article 14 (Vulnerability Reporting):</strong> The organization maintains comprehensive documentation of all identified vulnerabilities in accordance with ENISA reporting requirements. All actively exploited vulnerabilities affecting products with digital elements are documented with appropriate technical details, affected component information, and potential impact assessments. The vulnerability management system ensures timely notification to ENISA within the mandated 24-hour timeframe for critical and high-severity vulnerabilities that are being actively exploited in the wild.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Article 15:</strong> Vulnerabilities tracked with 24-hour deadlines and assigned ownership.
+                            <strong className="text-gray-900">Article 15 (Coordinated Vulnerability Disclosure):</strong> The organization has implemented coordinated vulnerability disclosure practices in compliance with regulatory requirements. All identified vulnerabilities are tracked with assigned ownership to qualified security personnel, appropriate severity classifications, and deadline-driven remediation schedules. The vulnerability management process includes mechanisms for receiving vulnerability reports from external security researchers, coordinating with affected parties, and managing public disclosure timelines in a responsible manner.
                         </p>
                         <p>
-                            <strong className="text-gray-900">Annex I:</strong> This report demonstrates continuous vulnerability management.
+                            <strong className="text-gray-900">Annex I (Documentation Requirements):</strong> This report serves as evidence of the organization's continuous vulnerability management capabilities and systematic approach to cybersecurity throughout the product lifecycle. The documented processes demonstrate compliance with Annex I requirements for maintaining up-to-date security documentation, implementing systematic vulnerability assessment procedures, and ensuring appropriate security measures are maintained for products with digital elements placed on the European market.
                         </p>
                     </div>
                 </section>
@@ -483,11 +509,31 @@ export default function ReportPrintPage() {
                 </section>
 
                 {/* Footer */}
-                <div className="mt-12 pt-6 border-t-2 border-gray-900 text-center text-sm text-gray-600">
-                    <p className="font-medium">Generated by 5teen.app CRA Compliance Platform</p>
-                    <p className="mt-1">
-                        Report ID: {report.id.slice(0, 16)}... | {new Date().toISOString().split("T")[0]}
-                    </p>
+                <div className="mt-12 pt-6 border-t-4 border-gray-900">
+                    <div className="text-center space-y-2">
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">Document Authentication</p>
+                        <p className="text-sm font-semibold text-gray-900">Generated by 5teen.app CRA Compliance Platform</p>
+                        <p className="text-xs text-gray-600 font-mono">
+                            Report Reference: {report.id.slice(0, 24)}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                            Generation Date: {new Date(report.created_at).toLocaleDateString("en-US", {
+                                year: "numeric",
+                                month: "long",
+                                day: "numeric",
+                            })} at {new Date(report.created_at).toLocaleTimeString("en-US", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                timeZoneName: "short"
+                            })}
+                        </p>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-gray-300 text-center">
+                        <p className="text-xs text-gray-500 leading-relaxed">
+                            This document contains confidential information prepared for regulatory compliance purposes.
+                            Unauthorized distribution or disclosure is prohibited.
+                        </p>
+                    </div>
                 </div>
             </div>
 
