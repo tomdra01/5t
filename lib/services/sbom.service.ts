@@ -130,11 +130,19 @@ export class SbomService {
     }
 
     const scanQueue: Array<{ componentId: string; purl: string }> = []
+    const componentsWithoutPurl: string[] = []
     for (const component of insertedComponents) {
       if (component.purl) {
         scanQueue.push({ componentId: component.id, purl: component.purl })
+      } else {
+        componentsWithoutPurl.push(component.name)
       }
     }
+
+    if (componentsWithoutPurl.length > 0) {
+      console.warn(`[SBOM] ${componentsWithoutPurl.length} components without PURL (won't be scanned):`, componentsWithoutPurl)
+    }
+    console.log(`[SBOM] Scanning ${scanQueue.length} components with valid PURLs`)
 
     let scansFailed = 0
     if (scanQueue.length > 0) {
@@ -155,6 +163,9 @@ export class SbomService {
     }
 
     let message = `Scanned ${componentsInserted} components. Found ${vulnerabilitiesInserted} vulnerabilities.`
+    if (componentsWithoutPurl.length > 0) {
+      message += ` (${componentsWithoutPurl.length} components skipped - no PURL)`
+    }
     if (scansFailed > 0) {
       message += ` (${scansFailed} scans failed - using cached data)`
     }
@@ -255,11 +266,41 @@ export class SbomService {
   private generatePurl(component: ParsedComponent): string | undefined {
     if (component.purl) return component.purl
 
-    const name = component.name.toLowerCase()
-    if (name.startsWith("@") || !name.includes("/")) {
-      return `pkg:npm/${component.name}@${component.version}`
+    const name = component.name
+    const nameLower = name.toLowerCase()
+    
+    // Detect .NET/NuGet packages
+    // NuGet packages typically use PascalCase and often contain dots
+    if (
+      /^[A-Z]/.test(name) && // Starts with capital letter
+      (
+        name.includes(".") || // Contains dots (e.g., System.Text.Json)
+        /^[A-Z][a-z]+([A-Z][a-z]+)+$/.test(name) // PascalCase without dots (e.g., AutoMapper)
+      )
+    ) {
+      console.log(`[PURL] Detected NuGet package: ${name}`)
+      return `pkg:nuget/${name}@${component.version}`
+    }
+    
+    // Detect npm scoped packages
+    if (name.startsWith("@")) {
+      console.log(`[PURL] Detected npm scoped package: ${name}`)
+      return `pkg:npm/${name}@${component.version}`
+    }
+    
+    // Detect Python packages (lowercase with hyphens or underscores)
+    if (/^[a-z0-9_-]+$/.test(nameLower) && (nameLower.includes("-") || nameLower.includes("_"))) {
+      console.log(`[PURL] Detected Python package: ${name}`)
+      return `pkg:pypi/${name}@${component.version}`
+    }
+    
+    // Default to npm for simple lowercase names
+    if (/^[a-z][a-z0-9-]*$/.test(nameLower)) {
+      console.log(`[PURL] Detected npm package: ${name}`)
+      return `pkg:npm/${name}@${component.version}`
     }
 
+    console.warn(`[PURL] Could not determine package type for: ${name}`)
     return undefined
   }
 

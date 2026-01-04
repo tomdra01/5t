@@ -105,7 +105,7 @@ export default function TriagePage() {
 
     const { data: vulnRows, error: vulnError } = await supabase
       .from("vulnerabilities")
-      .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")
+      .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at,cvss_score,nvd_score")
       .in("component_id", componentIds)
 
     if (vulnError) {
@@ -117,12 +117,14 @@ export default function TriagePage() {
     const componentNameById = new Map(componentRows.map((component) => [component.id, component.name]))
     const mapped = (vulnRows || []).map((row) => {
       const vulnerability = row as VulnerabilityRow
+      // Use NVD score if available (more authoritative), otherwise use OSV.dev score
+      const cvssScore = vulnerability.nvd_score ?? vulnerability.cvss_score ?? 0
       return {
         id: vulnerability.id,
         cveId: vulnerability.cve_id,
         title: vulnerability.remediation_notes || vulnerability.cve_id,
         severity: mapSeverity(vulnerability.severity),
-        cvssScore: 0,
+        cvssScore: cvssScore,
         affectedComponent: componentNameById.get(vulnerability.component_id) || "Unknown",
         discoveredAt: new Date(vulnerability.discovered_at),
         reportingDeadline: new Date(vulnerability.reporting_deadline),
