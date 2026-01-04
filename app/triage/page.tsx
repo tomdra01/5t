@@ -14,7 +14,7 @@ import { generateComplianceReport } from "@/app/triage/actions"
 import type { ComplianceReportSummary } from "@/types/compliance"
 
 const mapSeverity = (severity?: string | null): Vulnerability["severity"] => {
-  switch ((severity ?? "high").toLowerCase()) {
+  switch ((severity || "high").toLowerCase()) {
     case "critical":
       return "critical"
     case "high":
@@ -29,7 +29,7 @@ const mapSeverity = (severity?: string | null): Vulnerability["severity"] => {
 }
 
 const mapStatus = (status?: string | null): Vulnerability["status"] => {
-  switch ((status ?? "open").toLowerCase()) {
+  switch ((status || "open").toLowerCase()) {
     case "reported":
       return "reported"
     case "triaged":
@@ -89,7 +89,7 @@ export default function TriagePage() {
       return
     }
 
-    const componentRows = (components ?? []) as SbomComponentRow[]
+    const componentRows = components || []
     const componentIds = componentRows.map((component) => component.id)
     if (componentIds.length === 0) {
       setVulnerabilities([])
@@ -109,22 +109,22 @@ export default function TriagePage() {
     }
 
     const componentNameById = new Map(componentRows.map((component) => [component.id, component.name]))
-    const mapped = (vulnRows ?? []).map((row) => {
+    const mapped = (vulnRows || []).map((row) => {
       const vulnerability = row as VulnerabilityRow
       return {
         id: vulnerability.id,
         cveId: vulnerability.cve_id,
-        title: vulnerability.remediation_notes ?? vulnerability.cve_id,
+        title: vulnerability.remediation_notes || vulnerability.cve_id,
         severity: mapSeverity(vulnerability.severity),
         cvssScore: 0,
-        affectedComponent: componentNameById.get(vulnerability.component_id) ?? "Unknown",
+        affectedComponent: componentNameById.get(vulnerability.component_id) || "Unknown",
         discoveredAt: new Date(vulnerability.discovered_at),
         reportingDeadline: new Date(vulnerability.reporting_deadline),
         remediationDeadline: new Date(vulnerability.reporting_deadline),
         status: mapStatus(vulnerability.status),
         ownership: vulnerability.assigned_to ? vulnerability.assigned_to.slice(0, 8) + "…" : "Unassigned",
-        remediationStatus: vulnerability.status ?? "Open",
-        description: vulnerability.remediation_notes ?? undefined,
+        remediationStatus: vulnerability.status || "Open",
+        description: vulnerability.remediation_notes || undefined,
       } satisfies Vulnerability
     })
 
@@ -239,7 +239,7 @@ export default function TriagePage() {
               <div>
                 <p className="text-xs text-muted-foreground">Avg Remediation (hrs)</p>
                 <p className="text-lg font-semibold text-foreground">
-                  {report.averageRemediationHours ?? "—"}
+                  {report.averageRemediationHours || "—"}
                 </p>
               </div>
               <div>

@@ -58,7 +58,7 @@ export default function DashboardPage() {
 
       const { data: componentsData, error: componentError } = await supabase
         .from("sbom_components")
-        .select("id,project_id,name,version,purl,license,author,added_at")
+        .select("id,project_id,name,version,purl,license,author,added_at,sbom_version_id,previous_version")
         .eq("project_id", projectId)
         .order("added_at", { ascending: false })
 
@@ -68,22 +68,20 @@ export default function DashboardPage() {
         return
       }
 
-      const componentRows = (componentsData ?? []) as SbomComponentRow[]
+      const componentRows = componentsData || []
       setComponents(componentRows)
 
       const componentIds = componentRows.map((component) => component.id)
-      if (componentIds.length === 0) {
-        setVulnerabilities([])
-      } else {
+      if (componentIds.length > 0) {
         const { data: vulnRows, error: vulnError } = await supabase
           .from("vulnerabilities")
-          .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")
+          .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at,nvd_severity,nvd_score,source,fixed_at")
           .in("component_id", componentIds)
 
         if (vulnError) {
           setError("Unable to load vulnerabilities for this project.")
         } else {
-          setVulnerabilities((vulnRows ?? []) as VulnerabilityRow[])
+          setVulnerabilities(vulnRows || [])
         }
       }
 
@@ -97,7 +95,7 @@ export default function DashboardPage() {
       if (reportError) {
         setError("Unable to load compliance reports for this project.")
       } else {
-        setReports((reportRows ?? []) as ComplianceReportRow[])
+        setReports(reportRows || [])
       }
 
       const sbomActivity = componentRows.slice(0, 3).map((component) => ({
@@ -107,11 +105,11 @@ export default function DashboardPage() {
         label: `SBOM component added: ${component.name}`,
       }))
 
-      const reportActivity = (reportRows ?? []).map((report) => ({
+      const reportActivity = (reportRows || []).map((report) => ({
         id: `report-${report.id}`,
         type: "report" as const,
         createdAt: report.created_at,
-        label: `Report generated: ${report.report_type ?? "Compliance"}`,
+        label: `Report generated: ${report.report_type || "Compliance"}`,
       }))
 
       const combined = [...sbomActivity, ...reportActivity].sort(
@@ -124,15 +122,11 @@ export default function DashboardPage() {
 
     loadDashboard()
 
-    // Realtime Subscription with debounced refresh
     let refreshTimeout: NodeJS.Timeout
 
     const debouncedRefresh = () => {
       clearTimeout(refreshTimeout)
-      refreshTimeout = setTimeout(() => {
-        console.log("Refreshing dashboard after batch updates...")
-        loadDashboard()
-      }, 2000) // Wait 2 seconds of silence before refreshing
+      refreshTimeout = setTimeout(loadDashboard, 2000)
     }
 
     const channel = supabase
@@ -141,11 +135,10 @@ export default function DashboardPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "vulnerabilities" },
         () => {
-          console.log("Realtime update: vulnerabilities")
           toast.info("New vulnerabilities detected. Updating dashboard...", {
             duration: 3000,
             icon: <AlertTriangle className="h-4 w-4 text-amber-500" />,
-            id: "vuln-update", // Prevent multiple toast stacks
+            id: "vuln-update",
           })
           debouncedRefresh()
         }
@@ -154,7 +147,6 @@ export default function DashboardPage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "sbom_components" },
         () => {
-          console.log("Realtime update: sbom_components")
           toast.success("SBOM component processed.", {
             duration: 3000,
             icon: <Package className="h-4 w-4 text-green-500" />,
@@ -331,7 +323,7 @@ export default function DashboardPage() {
                       : "—"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {vulnerabilities.filter(v => ["Patched", "resolved"].includes(v.status ?? "")).length} resolved
+                    {vulnerabilities.filter(v => ["Patched", "resolved"].includes(v.status || "")).length} resolved
                   </p>
                 </div>
               </Card>

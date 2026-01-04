@@ -89,18 +89,29 @@ export function OwnershipModal({
       `)
             .eq("organization_id", projectData.organization_id)
 
-        const teamMembers: TeamMember[] = (membersData || [])
-            .filter((m: any) => m.profiles)
-            .map((m: any) => ({
-                id: m.profiles.id,
-                email: m.profiles.email,
+        interface MemberRow {
+            user_id: string
+            role: string
+            profiles: Array<{
+                id: string
+                email: string
+            }>
+        }
+
+        const teamMembers: TeamMember[] = (membersData as MemberRow[] || [])
+            .filter((m: MemberRow) => m.profiles && m.profiles.length > 0)
+            .map((m: MemberRow) => ({
+                id: m.profiles[0].id,
+                email: m.profiles[0].email,
                 role: m.role,
             }))
 
-        // Ensure OWNER is in the list (if not added to members table)
-        // Check if owner_id is in teamMembers
-        // We need to fetch owner profile if they are missing
-        const ownerId = (projectData.organizations as any)?.owner_id
+        interface OrganizationRow {
+            owner_id: string
+        }
+
+        const orgData = projectData.organizations as OrganizationRow | OrganizationRow[] | null
+        const ownerId = Array.isArray(orgData) ? orgData[0]?.owner_id : orgData?.owner_id
 
         if (ownerId && !teamMembers.find(m => m.id === ownerId)) {
             const { data: ownerProfile } = await supabase

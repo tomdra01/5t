@@ -26,7 +26,6 @@ export async function updateSettings(data: Partial<UserSettingsRow>) {
         throw new Error("Unauthorized")
     }
 
-    // Check if settings exist
     const { data: existing } = await supabase
         .from("user_settings")
         .select("user_id")
@@ -49,7 +48,7 @@ export async function updateSettings(data: Partial<UserSettingsRow>) {
             .insert({
                 user_id: userData.user.id,
                 nvd_api_key: data.nvd_api_key,
-                hybrid_scanning_enabled: data.hybrid_scanning_enabled ?? true,
+                hybrid_scanning_enabled: data.hybrid_scanning_enabled || true,
             })
 
         if (error) throw error

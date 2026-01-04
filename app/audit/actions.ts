@@ -49,18 +49,15 @@ export async function fetchComplianceReports(projectId: string): Promise<FetchRe
 
     const reports: ComplianceReport[] = (data as ComplianceReportRow[]).map((row) => ({
         id: row.id,
-        reportType: row.report_type ?? "Unknown",
+        reportType: row.report_type || "Unknown",
         generatedAt: new Date(row.created_at),
-        sentToRegulator: row.sent_to_regulator ?? false,
-        generatorEmail: "User", // In a real app with joined profiles, we'd get the email
+        sentToRegulator: row.sent_to_regulator || false,
+        generatorEmail: "User",
     }))
 
     const lastReportDate = reports.length > 0 ? reports[0].generatedAt : null
-
-    // Naive compliance logic: complained if any report exists in last 30 days
-    const isCompliant = lastReportDate
-        ? (new Date().getTime() - lastReportDate.getTime()) < (30 * 24 * 60 * 60 * 1000)
-        : false
+    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000)
+    const isCompliant = lastReportDate ? lastReportDate.getTime() > thirtyDaysAgo : false
 
     return {
         reports,

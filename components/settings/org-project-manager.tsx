@@ -49,17 +49,17 @@ export function OrgProjectManager() {
     ])
 
     if (!orgResult.error) {
-      const orgs = orgResult.data ?? []
+      const orgs = orgResult.data || []
       setOrganizations(orgs)
       if (orgs.length > 0 && !selectedOrgId) {
         setSelectedOrgId(orgs[0].id)
       }
     }
 
-    setProjects(projectResult.data ?? [])
-    setMemberships(memberResult.data ?? [])
-    setComponents(componentResult.data ?? [])
-    setVulnerabilities(vulnerabilityResult.data ?? [])
+    setProjects(projectResult.data || [])
+    setMemberships(memberResult.data || [])
+    setComponents(componentResult.data || [])
+    setVulnerabilities(vulnerabilityResult.data || [])
     setIsLoading(false)
   }
 
@@ -390,12 +390,12 @@ export function OrgProjectManager() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {activeOrgMembers.map((member) => {
                   const workload = getMemberWorkload(member.user_id)
-                  const statusColors = {
+                  const statusColors: Record<string, string> = {
                     overloaded: "border-red-500/50 bg-red-50/50 dark:bg-red-950/20",
                     moderate: "border-amber-500/50 bg-amber-50/50 dark:bg-amber-950/20",
                     healthy: "border-green-500/50 bg-green-50/50 dark:bg-green-950/20",
                   }
-                  const statusIcons = {
+                  const statusIcons: Record<string, string> = {
                     overloaded: "🔴",
                     moderate: "🟡",
                     healthy: "🟢",
@@ -404,7 +404,7 @@ export function OrgProjectManager() {
                   return (
                     <div
                       key={member.id}
-                      className={`p-4 border-2 rounded-lg ${statusColors[workload.status]}`}
+                      className={`p-4 border-2 rounded-lg ${statusColors[workload.status] || "border-border/60 bg-card/70"}`}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div>
@@ -420,7 +420,7 @@ export function OrgProjectManager() {
                           </div>
                           <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
                         </div>
-                        <span className="text-2xl">{statusIcons[workload.status]}</span>
+                        <span className="text-2xl">{statusIcons[workload.status] || "⚪"}</span>
                       </div>
 
                       <div className="space-y-2">

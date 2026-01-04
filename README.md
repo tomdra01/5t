@@ -1,109 +1,231 @@
 # 5teen - Cyber Resilience Act (CRA) Compliance Platform
 
-[![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-green?style=for-the-badge&logo=supabase)](https://supabase.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
 **Secure Software Development (E2025) - Agramkow Case Study**  
 *Developed by Tomas Dracka (18.11.2025)*
 
 ---
 
-## 📌 Context & Problem Statement
+## 📌 Project Overview
 
-The European **Cyber Resilience Act (CRA)** introduces a transformative legal framework for software manufacturers. It shifts the focus from simply shipping "secure products" to maintaining a **repeatable, documented secure development process**.
+The European **Cyber Resilience Act (CRA)** mandates that software manufacturers maintain a **repeatable, documented secure development process**—not just ship secure products. This platform addresses the compliance gap by automating vulnerability tracking, deadline management, and audit-ready reporting.
 
-### The Compliance Gap
-While tools to generate **SBOMs (Software Bill of Materials)** are becoming common, they only reveal *what* is inside the software at a single point in time. Most companies lack the infrastructure to:
-*   **Article 15 Compliance**: Fulfill the stringent **24-hour reporting requirement** for discovered vulnerabilities.
-*   **Article 14 & Annex I**: Demonstrate continuous vulnerability management, responsibility assignment, and remediation evidence to regulators.
-*   **Audit Readiness**: Transform raw vulnerability data into audit-ready documentation that proves a consistent security posture.
+### The Challenge
 
-**5teen** bridges this gap by providing a lightweight, automated platform for vulnerability lifecycle management.
+While SBOM generation tools are becoming standard, they only show *what's inside* the software. Most organizations lack systems to:
+- **Article 15 Compliance**: Meet the 24-hour reporting requirement for discovered vulnerabilities
+- **Article 14 & Annex I**: Demonstrate continuous vulnerability management and remediation evidence
+- **Audit Readiness**: Transform vulnerability data into regulatory-compliant documentation
 
----
-
-## 🚀 Key Features
-
-### 🛡️ Vulnerability Triage & Lifecyle
-*   **Automated Scanning**: Instant vulnerability detection via OSV.dev integration upon SBOM upload.
-*   **CRA Article 15 Automation**: Automatic calculation of the **24-hour reporting deadline** for every new discovery.
-*   **Responsibility Tracking**: Assign vulnerabilities to developers and track remediation progress with a structured audit trail.
-*   **Flexible Status Management**: Track vulnerabilities through states: `Open`, `Triaged`, `Patched`, and `Ignored`.
-
-### 📦 SBOM Management
-*   **Multi-Format Ingestion**: Supports CycloneDX (JSON) and SPDX imports.
-*   **Versioning**: Tracks software changes over time, allowing for delta-tracking of vulnerabilities between releases.
-*   **Component Inventory**: Provides a centralized view of all software components, licenses, and authors.
-
-### 📋 Audit & Compliance Center
-*   **Annex I Summaries**: One-click generation of compliance reports summarizing security posture for regulators.
-*   **Audit Trails**: Immutable logs of remediation milestones (status changes, notes, and fixes).
-*   **KPI Dashboard**: Monitor open vulnerabilities, average remediation time, and deadline compliance percentages.
+**5teen** solves this by providing an automated vulnerability lifecycle management platform.
 
 ---
 
-## 🛠 Tech Stack
+## 🚀 Core Features
 
-- **Frontend**: Next.js 14 (App Router), React, Tailwind CSS.
-- **Backend & Security**:
-    - **Supabase (PostgreSQL)**: Optimized schema with relational integrity.
-    - **Advanced RLS**: Highly performant Row Level Security with sub-query optimization.
-    - **Security Hardening**: Secure `search_path` functions and hardened extension schemas.
-- **Integrations**:
-    - **OSV.dev API**: Distributed vulnerability database.
-    - **CycloneDX/SPDX**: Industry-standard SBOM formats.
+### 🛡️ Vulnerability Management
+- **Automated OSV.dev Scanning**: Instant vulnerability detection upon SBOM upload
+- **CVSS-Based Severity Mapping**: Accurate risk assessment using industry standards
+- **24-Hour Deadline Tracking**: Automated CRA Article 15 compliance
+- **Intelligent Version Comparison**: Auto-resolves vulnerabilities when components are upgraded
+- **Lifecycle Workflow**: Track vulnerabilities through Open → Triaged → Patched → Ignored states
+
+### 📦 SBOM Processing
+- **Multi-Format Support**: CycloneDX and SPDX JSON formats
+- **Version Control**: Track software changes across releases
+- **Component Inventory**: Centralized view of dependencies, licenses, and authors
+- **Delta Detection**: Identify new, upgraded, downgraded, and unchanged components
+
+### 📋 Compliance & Reporting
+- **Annex I Summary Reports**: One-click regulatory compliance reports
+- **Real-Time KPIs**: Compliance score, remediation time, deadline adherence
+- **Audit Trails**: Immutable remediation milestone tracking
+- **Analytics Dashboard**: Vulnerability trends, severity distribution, time-to-fix metrics
+
+### 🔔 Notification System
+- **Email Alerts**: Resend integration for deadline warnings and new CVE notifications
+- **Assignee Management**: Workload balancing across team members
+- **CRA-Compliant Messaging**: Article 15 reporting requirements baked into notifications
 
 ---
 
-## 🏗 Database Architecture
+## 🏗️ Architecture
 
-The system relies on a robust schema designed for scale and auditability:
-1.  **Organizations & Projects**: Multi-tenant structure ensuring data isolation.
-2.  **SBOM Versions**: Snapshot-based component tracking.
-3.  **Vulnerabilities & Milestones**: A parent-child relationship that preserves the full history of a vulnerability's remediation lifecycle (CRA Annex I Requirement).
-4.  **Scan Queue**: Asynchronous processing queue for high-volume vulnerability scans.
+### Tech Stack
+- **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS 4, shadcn/ui
+- **Backend**: Next.js Server Actions, Supabase (PostgreSQL)
+- **Security**: Row Level Security (RLS), JWT authentication, middleware-based auth
+- **Integrations**: OSV.dev API, NVD API (optional), Resend (email)
+- **Validation**: Zod schemas for type-safe input validation
+- **Error Handling**: Custom error classes, React Error Boundaries
+
+### Professional Code Architecture
+\`\`\`
+lib/
+├── models/               # TypeScript domain models
+│   ├── vulnerability.ts
+│   ├── component.ts
+│   └── sbom.ts
+│
+├── services/             # Business logic layer
+│   ├── sbom.service.ts
+│   ├── vulnerability-scanner.service.ts
+│   └── notification.service.ts
+│
+├── repositories/         # Data access layer
+│   ├── vulnerability.repository.ts
+│   ├── component.repository.ts
+│   └── sbom.repository.ts
+│
+├── validators/           # Zod validation schemas
+│   ├── sbom.ts
+│   ├── vulnerability.ts
+│   └── settings.ts
+│
+└── errors/               # Custom error classes
+    └── index.ts
+\`\`\`
+
+### Database Schema
+**Tables:**
+1. `organizations` - Multi-tenant organization structure
+2. `organization_members` - User-organization relationships
+3. `projects` - Software projects with SBOM tracking
+4. `sbom_versions` - Versioned SBOM snapshots
+5. `sbom_components` - Component inventory with PURLs
+6. `vulnerabilities` - CVE tracking with deadlines and assignment
+7. `remediation_milestones` - Audit trail of vulnerability lifecycle
+8. `compliance_reports` - Generated compliance reports
+9. `user_settings` - User preferences (NVD API keys, scanning options)
+10. `profiles` - Public user profiles (synced with auth.users)
+
+**Security:**
+- Advanced Row Level Security (RLS) on all tables
+- Helper functions: `is_org_owner()`, `can_access_project()`, `log_remediation_milestone()`
+- Optimized indexes on foreign keys and temporal columns
+- `SECURITY DEFINER` functions with hardened `search_path`
 
 ---
 
 ## ⚙️ Getting Started
 
-### 1. Prerequisites
-- Node.js (v18+)
-- A Supabase Project
+### Prerequisites
+- Node.js v18+
+- Supabase Project
+- (Optional) Resend API key for email notifications
+- (Optional) NVD API key for enhanced CVSS scoring
 
-### 2. Setup
-```bash
-# Clone the repository
+### Installation
+
+\`\`\`bash
+# Clone repository
 git clone https://github.com/tomdra01/5t.git
+cd 5t
 
 # Install dependencies
 npm install
 
-# Set up environment variables (.env.local)
-NEXT_PUBLIC_SUPABASE_URL=your_project_url
+# Configure environment variables
+cp .env.example .env.local
+\`\`\`
+
+### Environment Variables
+\`\`\`env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-```
 
-### 3. Database Initialization
-Copy the migration scripts from `/supabase/migrations` (001-003) to your Supabase SQL Editor or run:
-```bash
+# Email Notifications (Optional)
+RESEND_API_KEY=your_resend_api_key
+NOTIFICATION_FROM_EMAIL=security@yourdomain.com
+
+# NVD API (Optional)
+NVD_API_KEY=your_nvd_api_key
+\`\`\`
+
+### Database Setup
+\`\`\`bash
+# Run migrations in Supabase SQL Editor
+# Execute migrations 001-007 in order
+
+# Or use Supabase CLI
 npx supabase db reset
-```
+\`\`\`
 
-### 4. Run Development
-```bash
+### Development
+\`\`\`bash
 npm run dev
-```
+# Open http://localhost:3000
+\`\`\`
+
+### Production Build
+\`\`\`bash
+npm run build
+npm start
+\`\`\`
 
 ---
 
-## 📜 CRA Compliance Roadmap
-- [x] **Article 15**: Automated 24-hour discovery-to-deadline tracking.
-- [x] **Article 14**: Continuous monitoring and documentation of vulnerability status.
-- [x] **Annex I**: Structured report generation for regulatory evidence.
-- [ ] **Coming Soon**: Vulnerability Disclosure Policy (VDP) portal integration.
+## 📜 CRA Compliance Coverage
+
+- [x] **Article 15**: Automated 24-hour discovery-to-deadline tracking
+- [x] **Article 14**: Continuous vulnerability monitoring and documentation
+- [x] **Annex I**: Structured compliance report generation
+- [x] **Email Notifications**: Timely alerts for critical vulnerabilities
+- [x] **Audit Trails**: Immutable remediation milestone logs
+- [x] **Multi-Format SBOM**: CycloneDX & SPDX support
 
 ---
-*This project was completed as an individual case study for the Secure Software Development course (E2025).*
+
+## 🔒 Security & Code Quality
+
+### Security Features
+- **Middleware Authentication**: Active auth guard on all protected routes
+- **Row Level Security**: Database-level access control
+- **Input Validation**: Zod schemas on all server actions
+- **Error Boundaries**: Production-ready error handling
+
+### Code Quality Standards
+- ✅ **Clean Architecture**: Service/repository pattern separation
+- ✅ **Type Safety**: 100% TypeScript, zero `any` types
+- ✅ **Input Validation**: Zod schemas for all external inputs
+- ✅ **Error Handling**: Custom error classes and React boundaries
+- ✅ **Professional Structure**: Models, services, repositories, validators
+- ✅ **Production Ready**: Proper logging, error handling, security
+
+---
+
+## 📊 Metrics & KPIs
+
+The platform tracks:
+- **Compliance Score**: Percentage of vulnerabilities remediated within deadlines
+- **Average Remediation Time**: Time from discovery to patching
+- **Deadline Adherence**: Percentage of vulnerabilities meeting CRA timelines
+- **Severity Distribution**: Critical/High/Medium/Low breakdown
+- **Component Inventory**: Total dependencies tracked across projects
+
+---
+
+## 🎯 Project Goals Achieved
+
+1. ✅ **Automated Vulnerability Discovery**: OSV.dev integration with CVSS mapping
+2. ✅ **CRA Article 15 Compliance**: 24-hour deadline automation
+3. ✅ **Audit-Ready Reports**: One-click Annex I summaries
+4. ✅ **Multi-Tenant Support**: Organizations, projects, and team management
+5. ✅ **Professional Architecture**: Service/repository patterns, validation, error handling
+6. ✅ **Production Readiness**: Middleware auth, error boundaries, type safety
+7. ✅ **Email Notifications**: Resend integration for compliance alerts
+
+---
+
+## 📝 License
+
+MIT
+
+---
+
+*This project was completed as an individual case study for the Secure Software Development course (E2025) at SDU.*

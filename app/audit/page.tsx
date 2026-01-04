@@ -27,7 +27,7 @@ export default function AuditPage() {
   }, [projectId])
 
   const stats = {
-    totalReports: data?.totalReports ?? 0,
+    totalReports: data?.totalReports || 0,
     lastReportDate: data?.lastReportDate
       ? format(data.lastReportDate, "MMM d, yyyy")
       : "No reports",
@@ -97,7 +97,7 @@ export default function AuditPage() {
         {isLoading ? (
           <div className="py-12 text-center text-muted-foreground">Loading audit data...</div>
         ) : (
-          <ComplianceReportList reports={data?.reports ?? []} />
+          <ComplianceReportList reports={data?.reports || []} />
         )}
 
         {/* Compliance Information */}

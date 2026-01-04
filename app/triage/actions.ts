@@ -1,172 +1,134 @@
 "use server"
 
 import { createClient } from "@/utils/supabase/server"
+import { revalidatePath } from "next/cache"
+import { updateVulnerabilitySchema } from "@/lib/validators/vulnerability"
+import { VulnerabilityRepository } from "@/lib/repositories/vulnerability.repository"
+import { ComponentRepository } from "@/lib/repositories/component.repository"
+import { handleError, AuthenticationError } from "@/lib/errors"
+import { calculateRemediationStats } from "@/lib/metrics"
 import type { ComplianceReportSummary } from "@/types/compliance"
-import type { SbomComponentRow, VulnerabilityRow } from "@/types/db"
-
-interface UpdateVulnerabilityInput {
-  vulnerabilityId: string
-  status?: string
-  assignedTo?: string | null
-  remediationNotes?: string | null
-}
 
 interface UpdateVulnerabilityResult {
   success: boolean
   message: string
 }
 
-export async function updateVulnerabilityAction({
-  vulnerabilityId,
-  status,
-  assignedTo,
-  remediationNotes,
-}: UpdateVulnerabilityInput): Promise<UpdateVulnerabilityResult> {
-  const supabase = await createClient()
+export async function updateVulnerabilityAction(input: {
+  vulnerabilityId: string
+  status?: string
+  assignedTo?: string | null
+  remediationNotes?: string | null
+}): Promise<UpdateVulnerabilityResult> {
+  try {
+    const supabase = await createClient()
+    const { data: userData, error: userError } = await supabase.auth.getUser()
 
-  // Verify auth
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) {
-    return { success: false, message: "Sign in to update vulnerabilities." }
-  }
-
-  const updates: Partial<VulnerabilityRow> = {
-    updated_at: new Date().toISOString(),
-  }
-
-  if (status !== undefined) {
-    // Map UI status to DB status
-    let dbStatus = status
-    switch (status) {
-      case "discovered":
-        dbStatus = "Open"
-        break
-      case "in-remediation":
-        dbStatus = "Triaged"
-        break
-      case "resolved":
-        dbStatus = "Patched"
-        break
-      case "reported":
-        dbStatus = "Reported"
-        break
+    if (userError || !userData.user) {
+      throw new AuthenticationError()
     }
-    updates.status = dbStatus
+
+    const statusMapping: Record<string, string> = {
+      discovered: "Open",
+      "in-remediation": "Triaged",
+      resolved: "Patched",
+      reported: "Reported",
+    }
+
+    const mappedStatus = input.status ? statusMapping[input.status] || input.status : undefined
+
+    const validated = updateVulnerabilitySchema.parse({
+      id: input.vulnerabilityId,
+      status: mappedStatus,
+      assigned_to: input.assignedTo,
+      remediation_notes: input.remediationNotes,
+    })
+
+    const vulnerabilityRepo = new VulnerabilityRepository(supabase)
+    const updated = await vulnerabilityRepo.update(validated.id, {
+      status: validated.status as "Open" | "Triaged" | "Patched" | "Ignored" | undefined,
+      assigned_to: validated.assigned_to,
+      remediation_notes: validated.remediation_notes,
+    })
+
+    if (!updated) {
+      return { success: false, message: "Failed to update vulnerability" }
+    }
+
+    revalidatePath("/triage")
+    revalidatePath("/")
+
+    return { success: true, message: "Vulnerability updated successfully" }
+  } catch (error) {
+    return handleError(error) as UpdateVulnerabilityResult
   }
-  if (assignedTo !== undefined) updates.assigned_to = assignedTo
-  if (remediationNotes !== undefined) updates.remediation_notes = remediationNotes
-
-  const { error } = await supabase
-    .from("vulnerabilities")
-    .update(updates)
-    .eq("id", vulnerabilityId)
-
-  if (error) {
-    return { success: false, message: `Update failed: ${error.message}` }
-  }
-
-  return { success: true, message: "Vulnerability updated successfully." }
 }
 
-
-import { calculateRemediationStats } from "@/lib/metrics"
-
-interface GenerateComplianceReportInput {
+export async function generateComplianceReport(input: {
   projectId: string
-}
+}): Promise<ComplianceReportSummary> {
+  try {
+    const supabase = await createClient()
+    const { data: userData, error: userError } = await supabase.auth.getUser()
 
-export async function generateComplianceReport({
-  projectId,
-}: GenerateComplianceReportInput): Promise<ComplianceReportSummary> {
-  if (!projectId) {
-    return {
-      success: false,
-      message: "Missing project ID.",
-      criticalCount: 0,
-      averageRemediationHours: null,
-      deadlinesMetPercent: 0,
-      totalVulnerabilities: 0,
+    if (userError || !userData.user) {
+      throw new AuthenticationError()
     }
-  }
 
-  const supabase = await createClient()
-  const { data: userData, error: userError } = await supabase.auth.getUser()
-  if (userError || !userData.user) {
-    return {
-      success: false,
-      message: "Sign in to generate reports.",
-      criticalCount: 0,
-      averageRemediationHours: null,
-      deadlinesMetPercent: 0,
-      totalVulnerabilities: 0,
+    const componentRepo = new ComponentRepository(supabase)
+    const components = await componentRepo.findByProjectId(input.projectId)
+
+    if (components.length === 0) {
+      return {
+        success: true,
+        message: "No components available for reporting",
+        criticalCount: 0,
+        averageRemediationHours: null,
+        deadlinesMetPercent: 0,
+        totalVulnerabilities: 0,
+      }
     }
-  }
 
-  const { data: componentRows, error: componentError } = await supabase
-    .from("sbom_components")
-    .select("id,project_id,name,version,purl,license,author,added_at")
-    .eq("project_id", projectId)
+    const componentIds = components.map((c) => c.id)
 
-  if (componentError) {
-    return {
-      success: false,
-      message: "Unable to load SBOM components for this project.",
-      criticalCount: 0,
-      averageRemediationHours: null,
-      deadlinesMetPercent: 0,
-      totalVulnerabilities: 0,
+    const { data: vulnRows, error: vulnError } = await supabase
+      .from("vulnerabilities")
+      .select("*")
+      .in("component_id", componentIds)
+
+    if (vulnError) {
+      return {
+        success: false,
+        message: "Unable to load vulnerabilities for this project",
+        criticalCount: 0,
+        averageRemediationHours: null,
+        deadlinesMetPercent: 0,
+        totalVulnerabilities: 0,
+      }
     }
-  }
 
-  const components = (componentRows ?? []) as SbomComponentRow[]
-  const componentIds = components.map((component) => component.id)
-  if (componentIds.length === 0) {
+    const vulnerabilities = vulnRows || []
+    const stats = calculateRemediationStats(vulnerabilities)
+
+    await supabase.from("compliance_reports").insert({
+      project_id: input.projectId,
+      report_type: "Annex_I_Summary",
+    })
+
     return {
       success: true,
-      message: "No components available for reporting.",
-      criticalCount: 0,
-      averageRemediationHours: null,
-      deadlinesMetPercent: 0,
-      totalVulnerabilities: 0,
-    }
-  }
-
-  const { data: vulnRows, error: vulnError } = await supabase
-    .from("vulnerabilities")
-    .select("id,component_id,cve_id,severity,status,assigned_to,remediation_notes,discovered_at,reporting_deadline,updated_at")
-    .in("component_id", componentIds)
-
-  if (vulnError) {
-    return {
-      success: false,
-      message: "Unable to load vulnerabilities for this project.",
-      criticalCount: 0,
-      averageRemediationHours: null,
-      deadlinesMetPercent: 0,
-      totalVulnerabilities: 0,
-    }
-  }
-
-  const vulnerabilities = (vulnRows ?? []) as VulnerabilityRow[]
-  const stats = calculateRemediationStats(vulnerabilities)
-
-  const { error: reportError } = await supabase.from("compliance_reports").insert({
-    project_id: projectId,
-    report_type: "Annex_I_Summary",
-  })
-
-  if (reportError) {
-    return {
-      success: false,
-      message: `Report generated but failed to log: ${reportError.message}`,
+      message: "Compliance report generated",
       ...stats,
     }
-  }
-
-  return {
-    success: true,
-    message: "Compliance report generated.",
-    ...stats,
+  } catch (error) {
+    const result = handleError(error)
+    return {
+      success: false,
+      message: result.message,
+      criticalCount: 0,
+      averageRemediationHours: null,
+      deadlinesMetPercent: 0,
+      totalVulnerabilities: 0,
+    }
   }
 }
-

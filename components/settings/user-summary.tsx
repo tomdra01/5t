@@ -21,7 +21,7 @@ export function UserSummary() {
         setError("Unable to load signed-in user.")
         return
       }
-      setUser({ email: data.user.email ?? "Unknown", id: data.user.id })
+      setUser({ email: data.user.email || "Unknown", id: data.user.id })
     }
 
     loadUser()

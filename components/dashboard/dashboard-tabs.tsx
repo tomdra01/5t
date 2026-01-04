@@ -18,9 +18,9 @@ interface DashboardTabsProps {
 }
 
 export function DashboardTabs({ tabs, initialTabId, className }: DashboardTabsProps) {
-  const [activeTab, setActiveTab] = useState(initialTabId ?? tabs[0]?.id)
+  const [activeTab, setActiveTab] = useState(initialTabId || tabs[0]?.id)
   const tabListId = useId()
-  const active = tabs.find((tab) => tab.id === activeTab) ?? tabs[0]
+  const active = tabs.find((tab) => tab.id === activeTab) || tabs[0]
 
   if (!active) {
     return null
