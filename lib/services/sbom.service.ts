@@ -93,6 +93,7 @@ export class SbomService {
       }
     }
 
+    let scansFailed = 0
     if (scanQueue.length > 0) {
       const purls = scanQueue.map((item) => item.purl)
       const scanResults = await this.scanner.scanMultipleComponents(purls)
@@ -100,15 +101,24 @@ export class SbomService {
       for (const item of scanQueue) {
         const result = scanResults.get(item.purl)
         if (result?.vulns && result.vulns.length > 0) {
-          const count = await this.scanner.scanComponent(item.componentId, item.purl)
-          vulnerabilitiesInserted += count
+          try {
+            const count = await this.scanner.scanComponent(item.componentId, item.purl)
+            vulnerabilitiesInserted += count
+          } catch (error) {
+            scansFailed++
+          }
         }
       }
     }
 
+    let message = `Scanned ${componentsInserted} components. Found ${vulnerabilitiesInserted} vulnerabilities.`
+    if (scansFailed > 0) {
+      message += ` (${scansFailed} scans failed - using cached data)`
+    }
+
     return {
       success: true,
-      message: `Successfully scanned ${componentsInserted} components. Found ${vulnerabilitiesInserted} new vulnerabilities.`,
+      message,
       componentsInserted,
       vulnerabilitiesInserted,
       componentsUpgraded: upgradedComponents.length,

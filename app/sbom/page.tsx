@@ -12,11 +12,10 @@ import { createClient } from "@/utils/supabase/client"
 import Link from "next/link"
 import { uploadSbomAction } from "@/app/sbom/actions"
 import { useProjectContext } from "@/components/project-context"
+import { toast } from "sonner"
 
 export default function SBOMPage() {
   const [components, setComponents] = useState<SBOMComponent[]>([])
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [isLoadingProjects, setIsLoadingProjects] = useState(true)
@@ -41,7 +40,7 @@ export default function SBOMPage() {
         .order("created_at", { ascending: false })
 
       if (error) {
-        setUploadError("Failed to load projects.")
+        toast.error("Failed to load projects.")
         setIsLoadingProjects(false)
         return
       }
@@ -93,7 +92,7 @@ export default function SBOMPage() {
         .order("name", { ascending: true })
 
       if (componentError) {
-        setUploadError("Failed to load SBOM components.")
+        toast.error("Failed to load SBOM components.")
         return
       }
 
@@ -135,14 +134,11 @@ export default function SBOMPage() {
 
   const handleFileUpload = async (file: File) => {
     try {
-      setUploadError(null)
-      setUploadStatus(null)
       const parsed = await parseSbomFile(file)
-      // Optimistic update - show components immediately
       setComponents(parsed.components)
 
       if (!projectId) {
-        setUploadError("Select a project before uploading to Supabase.")
+        toast.error("Please select a project before uploading.")
         return
       }
 
@@ -153,9 +149,9 @@ export default function SBOMPage() {
       const result = await uploadSbomAction({ projectId, fileContent })
 
       if (!result.success) {
-        setUploadError(result.message || "Failed to save SBOM data.")
+        toast.error(result.message || "Failed to save SBOM data.")
       } else {
-        setUploadStatus(result.message)
+        toast.success(result.message)
         // Refresh data to show new vulnerabilities
         // We need to trigger the loadComponents effect
         // A simple way is to force a reload by re-fetching project data
@@ -215,7 +211,9 @@ export default function SBOMPage() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to parse SBOM file."
-      setUploadError(message)
+      toast.error(message, {
+        icon: <AlertTriangle className="h-4 w-4" />,
+      })
       setComponents([])
     } finally {
       setIsProcessing(false)
@@ -274,16 +272,6 @@ export default function SBOMPage() {
 
       {/* Upload Zone */}
       <DropZone onFileUpload={handleFileUpload} />
-      {uploadError && (
-        <div className="text-sm text-destructive border border-destructive/20 bg-destructive/5 rounded-2xl px-4 py-3">
-          {uploadError}
-        </div>
-      )}
-      {uploadStatus && (
-        <div className="text-sm text-emerald-700 border border-emerald-200/60 bg-emerald-50 rounded-2xl px-4 py-3">
-          {uploadStatus}
-        </div>
-      )}
       {isProcessing && <p className="text-sm text-muted-foreground">Scanning and saving to Supabase...</p>}
 
       {/* Quick Stats */}

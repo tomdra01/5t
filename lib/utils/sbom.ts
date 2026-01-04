@@ -198,10 +198,36 @@ export function parseSbom(content: string): ParsedComponent[] {
   return asArray<ParsedComponent>(parsed.raw.components || data.components || data.packages)
 }
 
-// Client-side file parsing
 export async function parseSbomFile(file: File): Promise<ParsedSBOM> {
-  const contents = await file.text()
-  const data = JSON.parse(contents) as UnknownRecord
+  if (!file.name.endsWith('.json') && !file.name.endsWith('.spdx')) {
+    throw new Error(`Invalid file type "${file.name}". Only JSON and SPDX files are supported.`)
+  }
+
+  if (file.size === 0) {
+    throw new Error('File is empty. Please upload a valid SBOM file.')
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error('File too large. Maximum size is 10MB.')
+  }
+
+  let contents: string
+  try {
+    contents = await file.text()
+  } catch (error) {
+    throw new Error('Failed to read file. The file may be corrupted.')
+  }
+
+  let data: UnknownRecord
+  try {
+    data = JSON.parse(contents) as UnknownRecord
+  } catch (error) {
+    throw new Error('Invalid JSON format. Please check your SBOM file syntax.')
+  }
+
+  if (!data || typeof data !== 'object') {
+    throw new Error('Invalid SBOM structure. File must contain a valid JSON object.')
+  }
 
   if (typeof data.bomFormat === "string" && data.bomFormat.toLowerCase() === "cyclonedx") {
     return parseCycloneDX(data)
@@ -221,5 +247,5 @@ export async function parseSbomFile(file: File): Promise<ParsedSBOM> {
     return parseSpdx(data)
   }
 
-  throw new Error("Unsupported SBOM format. Please upload a CycloneDX or SPDX JSON file.")
+  throw new Error("Unrecognized SBOM format. Expected CycloneDX or SPDX structure.")
 }
