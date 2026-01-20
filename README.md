@@ -84,4 +84,4 @@ MIT
 
 ---
 
-*This project demonstrates a production-ready approach to CRA compliance automation, completed as part of the Secure Software Development course at SDU.*
+*This project demonstrates a production-ready approach to CRA compliance automation, completed as part of the Secure Software Development course at EASV.*
