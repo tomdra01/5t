@@ -9,6 +9,8 @@
 
 The CRA requires software manufacturers to maintain a documented, repeatable secure development process. Article 15 mandates reporting actively exploited vulnerabilities within 24 hours of discovery. Article 14 requires continuous vulnerability management with evidence of remediation efforts. Most organizations lack the infrastructure to meet these requirements systematically. 5teen provides that infrastructure.
 
+<img width="2672" height="1444" alt="Snímka obrazovky 2026-01-20 o 21 40 40" src="https://github.com/user-attachments/assets/0949c84d-07e6-45ce-98ad-4986d91777b8" />
+
 ## What It Does
 
 The platform accepts SBOM files in CycloneDX or SPDX JSON format. Upon upload, it scans each component against the OSV.dev vulnerability database. When vulnerabilities are discovered, the system creates tracking records with automatically calculated deadlines based on CRA requirements. The default deadline is 24 hours from discovery, matching Article 15's reporting timeline.
@@ -33,11 +35,20 @@ Authentication uses Supabase Auth with JWT tokens. Middleware protects routes, e
 
 **Vulnerability Management:** Automatic scanning via OSV.dev API upon SBOM upload. CVSS-based severity classification. Status workflow tracking from discovery through resolution. Automatic deadline calculation and monitoring. Team member assignment for workload distribution.
 
+<img width="2672" height="1444" alt="Snímka obrazovky 2026-01-20 o 21 40 58" src="https://github.com/user-attachments/assets/7eb60757-1cfb-4a17-ba45-d42577ccd20e" />
+
 **SBOM Processing:** Multi-format support for CycloneDX and SPDX JSON. Version control tracking software evolution over time. Component inventory with license and author information. Delta detection identifying new, upgraded, downgraded, and unchanged components between versions.
+
+<img width="2672" height="1444" alt="Snímka obrazovky 2026-01-20 o 21 40 49" src="https://github.com/user-attachments/assets/455583f6-799e-497d-b5a4-149b5b7e99ef" />
 
 **Compliance Reporting:** Annex I summary reports generated on demand. Real-time KPIs including compliance scores and remediation times. Audit trails with immutable milestone logging. Analytics visualizations for vulnerability trends and severity distributions.
 
+<img width="2672" height="1444" alt="Snímka obrazovky 2026-01-20 o 21 41 39" src="https://github.com/user-attachments/assets/d4c4aea5-65a7-44f9-8f4e-ddd844c9c9f0" />
+
 **Automation:** Automatic status changes for past-deadline vulnerabilities. Automatic resolution when component versions are upgraded. Automated CVSS scoring and severity mapping. Optional integration with NVD API for enhanced vulnerability details.
+
+<img width="2672" height="1444" alt="Snímka obrazovky 2026-01-20 o 21 41 29" src="https://github.com/user-attachments/assets/8afb3572-b03e-4cb9-b8ec-185902c9bdbe" />
+<img width="2672" height="1444" alt="Snímka obrazovky 2026-01-20 o 21 41 24" src="https://github.com/user-attachments/assets/6944ab33-cb66-43ee-87d5-4d7db2bb57a8" />
 
 ## Setup
 
